@@ -256,13 +256,13 @@ func TestMock_AfterFunc_Stop(t *testing.T) {
 // Ensure that the mock's current time can be changed.
 func TestMock_Now(t *testing.T) {
 	clock := clock.NewMock()
-	if now := clock.Now(); !now.Equal(time.Unix(0, 0).UTC()) {
+	if now := clock.Now(); !now.Equal(time.Unix(0, 0)) {
 		t.Fatalf("expected epoch, got: ", now)
 	}
 
 	// Add 10 seconds and check the time.
 	clock.Add(10 * time.Second)
-	if now := clock.Now(); !now.Equal(time.Unix(10, 0).UTC()) {
+	if now := clock.Now(); !now.Equal(time.Unix(10, 0)) {
 		t.Fatalf("expected epoch, got: ", now)
 	}
 }
@@ -411,6 +411,131 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	if atomic.LoadInt32(&n) != 310 {
 		t.Fatalf("unexpected: %d", n)
 	}
+}
+
+func ExampleMock_After() {
+	// Create a new mock clock.
+	clock := clock.NewMock()
+	count := 0
+
+	// Create a channel to execute after 10 mock seconds.
+	go func() {
+		<-clock.After(10 * time.Second)
+		count = 100
+	}()
+	runtime.Gosched()
+
+	// Print the starting value.
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Move the clock forward 5 seconds and print the value again.
+	clock.Add(5 * time.Second)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Move the clock forward 5 seconds to the tick time and check the value.
+	clock.Add(5 * time.Second)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Output:
+	// 1970-01-01 00:00:00 +0000 UTC: 0
+	// 1970-01-01 00:00:05 +0000 UTC: 0
+	// 1970-01-01 00:00:10 +0000 UTC: 100
+}
+
+func ExampleMock_AfterFunc() {
+	// Create a new mock clock.
+	clock := clock.NewMock()
+	count := 0
+
+	// Execute a function after 10 mock seconds.
+	clock.AfterFunc(10*time.Second, func() {
+		count = 100
+	})
+	runtime.Gosched()
+
+	// Print the starting value.
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Move the clock forward 10 seconds and print the new value.
+	clock.Add(10 * time.Second)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Output:
+	// 1970-01-01 00:00:00 +0000 UTC: 0
+	// 1970-01-01 00:00:10 +0000 UTC: 100
+}
+
+func ExampleMock_Sleep() {
+	// Create a new mock clock.
+	clock := clock.NewMock()
+	count := 0
+
+	// Execute a function after 10 mock seconds.
+	go func() {
+		clock.Sleep(10 * time.Second)
+		count = 100
+	}()
+	runtime.Gosched()
+
+	// Print the starting value.
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Move the clock forward 10 seconds and print the new value.
+	clock.Add(10 * time.Second)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+
+	// Output:
+	// 1970-01-01 00:00:00 +0000 UTC: 0
+	// 1970-01-01 00:00:10 +0000 UTC: 100
+}
+
+func ExampleMock_Ticker() {
+	// Create a new mock clock.
+	clock := clock.NewMock()
+	count := 0
+
+	// Increment count every mock second.
+	go func() {
+		ticker := clock.Ticker(1 * time.Second)
+		for {
+			<-ticker.C
+			count++
+		}
+	}()
+	runtime.Gosched()
+
+	// Move the clock forward 10 seconds and print the new value.
+	clock.Add(10 * time.Second)
+	fmt.Printf("Count is %d after 10 seconds\n", count)
+
+	// Move the clock forward 5 more seconds and print the new value.
+	clock.Add(5 * time.Second)
+	fmt.Printf("Count is %d after 15 seconds\n", count)
+
+	// Output:
+	// Count is 10 after 10 seconds
+	// Count is 15 after 15 seconds
+}
+
+func ExampleMock_Timer() {
+	// Create a new mock clock.
+	clock := clock.NewMock()
+	count := 0
+
+	// Increment count after a mock second.
+	go func() {
+		timer := clock.Timer(1 * time.Second)
+		<-timer.C
+		count++
+	}()
+	runtime.Gosched()
+
+	// Move the clock forward 10 seconds and print the new value.
+	clock.Add(10 * time.Second)
+	fmt.Printf("Count is %d after 10 seconds\n", count)
+
+	// Output:
+	// Count is 1 after 10 seconds
 }
 
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }

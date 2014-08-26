@@ -63,7 +63,7 @@ type Mock struct {
 // NewMock returns an instance of a mock clock.
 // The current time of the mock clock on initialization is the Unix epoch.
 func NewMock() *Mock {
-	return &Mock{now: time.Unix(0, 0).UTC()}
+	return &Mock{now: time.Unix(0, 0)}
 }
 
 // Add moves the current time of the mock clock forward by the duration.
