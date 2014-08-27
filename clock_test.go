@@ -23,10 +23,9 @@ func TestClock_After(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 		t.Fatal("too late")
 	}()
-	runtime.Gosched()
+	gosched()
 
 	<-clock.New().After(20 * time.Millisecond)
-	runtime.Gosched()
 	if !ok {
 		t.Fatal("too early")
 	}
@@ -43,17 +42,14 @@ func TestClock_AfterFunc(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 		t.Fatal("too late")
 	}()
-	runtime.Gosched()
+	gosched()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	runtime.Gosched()
 	clock.New().AfterFunc(20*time.Millisecond, func() {
 		wg.Done()
 	})
-	runtime.Gosched()
 	wg.Wait()
-	runtime.Gosched()
 	if !ok {
 		t.Fatal("too early")
 	}
@@ -79,9 +75,9 @@ func TestClock_Sleep(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 		t.Fatal("too late")
 	}()
+	gosched()
 
 	clock.New().Sleep(20 * time.Millisecond)
-	runtime.Gosched()
 	if !ok {
 		t.Fatal("too early")
 	}
@@ -98,13 +94,11 @@ func TestClock_Tick(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		t.Fatal("too late")
 	}()
+	gosched()
 
 	c := clock.New().Tick(20 * time.Millisecond)
-	runtime.Gosched()
 	<-c
-	runtime.Gosched()
 	<-c
-	runtime.Gosched()
 	if !ok {
 		t.Fatal("too early")
 	}
@@ -121,13 +115,11 @@ func TestClock_Ticker(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		t.Fatal("too late")
 	}()
+	gosched()
 
 	ticker := clock.New().Ticker(20 * time.Millisecond)
-	runtime.Gosched()
 	<-ticker.C
-	runtime.Gosched()
 	<-ticker.C
-	runtime.Gosched()
 	if !ok {
 		t.Fatal("too early")
 	}
@@ -140,13 +132,11 @@ func TestClock_Ticker_Stp(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		ok = true
 	}()
-	runtime.Gosched()
+	gosched()
 
 	ticker := clock.New().Ticker(20 * time.Millisecond)
 	<-ticker.C
-	runtime.Gosched()
 	ticker.Stop()
-	runtime.Gosched()
 	select {
 	case <-ticker.C:
 		t.Fatal("unexpected send")
@@ -165,9 +155,9 @@ func TestClock_Timer(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 		t.Fatal("too late")
 	}()
+	gosched()
 
 	timer := clock.New().Timer(20 * time.Millisecond)
-	runtime.Gosched()
 	<-timer.C
 	if !ok {
 		t.Fatal("too early")
@@ -246,11 +236,12 @@ func TestMock_AfterFunc_Stop(t *testing.T) {
 	timer := clock.AfterFunc(10*time.Second, func() {
 		t.Fatal("unexpected function execution")
 	})
+	gosched()
 
 	// Stop timer & move clock forward.
 	timer.Stop()
 	clock.Add(10 * time.Second)
-	runtime.Gosched()
+	gosched()
 }
 
 // Ensure that the mock's current time can be changed.
@@ -277,7 +268,7 @@ func TestMock_Sleep(t *testing.T) {
 		clock.Sleep(10 * time.Second)
 		atomic.StoreInt32(&ok, 1)
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Move clock forward to just before the sleep duration.
 	clock.Add(9 * time.Second)
@@ -305,7 +296,7 @@ func TestMock_Tick(t *testing.T) {
 			atomic.AddInt32(&n, 1)
 		}
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Move clock forward to just before the first tick.
 	clock.Add(9 * time.Second)
@@ -339,7 +330,7 @@ func TestMock_Ticker(t *testing.T) {
 			atomic.AddInt32(&n, 1)
 		}
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Move clock forward.
 	clock.Add(10 * time.Microsecond)
@@ -369,7 +360,7 @@ func TestMock_Ticker_Stop(t *testing.T) {
 			atomic.AddInt32(&n, 1)
 		}
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Move clock forward.
 	clock.Add(5 * time.Second)
@@ -391,10 +382,10 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	var n int32
 	clock := clock.NewMock()
 
-	//
 	go func() {
 		a := clock.Ticker(1 * time.Microsecond)
 		b := clock.Ticker(3 * time.Microsecond)
+
 		for {
 			select {
 			case <-a.C:
@@ -404,10 +395,11 @@ func TestMock_Ticker_Multi(t *testing.T) {
 			}
 		}
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Move clock forward.
 	clock.Add(10 * time.Microsecond)
+	gosched()
 	if atomic.LoadInt32(&n) != 310 {
 		t.Fatalf("unexpected: %d", n)
 	}
@@ -540,3 +532,5 @@ func ExampleMock_Timer() {
 
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
 func warnf(msg string, v ...interface{}) { fmt.Fprintf(os.Stderr, msg+"\n", v...) }
+
+func gosched() { time.Sleep(1 * time.Millisecond) }

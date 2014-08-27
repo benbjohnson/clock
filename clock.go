@@ -80,8 +80,12 @@ func (m *Mock) Add(d time.Duration) {
 	}
 
 	// Ensure that we end with the new time.
+	m.mu.Lock()
 	m.now = t
-	runtime.Gosched()
+	m.mu.Unlock()
+
+	// Give a small buffer to make sure the other goroutines get handled.
+	gosched()
 }
 
 // runNextTimer executes the next timer in chronological order and moves the
@@ -236,7 +240,7 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
-	runtime.Gosched()
+	gosched()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
@@ -267,5 +271,8 @@ func (t *internalTicker) Tick(now time.Time) {
 	default:
 	}
 	t.next = now.Add(t.d)
-	runtime.Gosched()
+	gosched()
 }
+
+// Sleep momentarily so that other goroutines can process.
+func gosched() { runtime.Gosched() }
