@@ -108,16 +108,16 @@ func TestClock_Tick(t *testing.T) {
 func TestClock_Ticker(t *testing.T) {
 	var ok bool
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		ok = true
 	}()
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 		t.Fatal("too late")
 	}()
 	gosched()
 
-	ticker := clock.New().Ticker(20 * time.Millisecond)
+	ticker := clock.New().Ticker(50 * time.Millisecond)
 	<-ticker.C
 	<-ticker.C
 	if !ok {

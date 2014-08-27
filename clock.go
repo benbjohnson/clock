@@ -268,7 +268,7 @@ func (t *internalTicker) Next() time.Time { return t.next }
 func (t *internalTicker) Tick(now time.Time) {
 	select {
 	case t.c <- now:
-	default:
+	case <-time.After(1 * time.Millisecond):
 	}
 	t.next = now.Add(t.d)
 	gosched()
