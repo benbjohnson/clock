@@ -66,6 +66,12 @@ func NewMock() *Mock {
 	return &Mock{now: time.Unix(0, 0)}
 }
 
+// NewMockFrom returns an instance of a mock clock.
+// The current time of the mock clock on initialization is t in Unix time format
+func NewMockFrom(t int64) *Mock {
+	return &Mock{now: time.Unix(t, 0)}
+}
+
 // Add moves the current time of the mock clock forward by the duration.
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Add(d time.Duration) {
