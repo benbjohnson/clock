@@ -88,6 +88,25 @@ func (m *Mock) Add(d time.Duration) {
 	gosched()
 }
 
+// Sets the current time of the mock clock to a specific one.
+// This should only be called from a single goroutine at a time.
+func (m *Mock) Set(t time.Time) {
+	// Continue to execute timers until there are no more before the new time.
+	for {
+		if !m.runNextTimer(t) {
+			break
+		}
+	}
+
+	// Ensure that we end with the new time.
+	m.mu.Lock()
+	m.now = t
+	m.mu.Unlock()
+
+	// Give a small buffer to make sure the other goroutines get handled.
+	gosched()
+}
+
 // runNextTimer executes the next timer in chronological order and moves the
 // current time to the timer's next tick time. The next time is not executed if
 // it's next time if after the max time. Returns true if a timer is executed.
