@@ -1,8 +1,8 @@
 package clock_test
 
 import (
-	"./"
 	"fmt"
+	"github.com/benbjohnson/clock"
 	"os"
 	"runtime"
 	"sync"
