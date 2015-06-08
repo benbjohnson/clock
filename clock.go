@@ -175,7 +175,7 @@ func (m *Mock) Tick(d time.Duration) <-chan time.Time {
 func (m *Mock) Ticker(d time.Duration) *Ticker {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ch := make(chan time.Time)
+	ch := make(chan time.Time, 1)
 	t := &Ticker{
 		C:    ch,
 		c:    ch,
@@ -191,7 +191,7 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 func (m *Mock) Timer(d time.Duration) *Timer {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ch := make(chan time.Time)
+	ch := make(chan time.Time, 1)
 	t := &Timer{
 		C:    ch,
 		c:    ch,
@@ -287,7 +287,7 @@ func (t *internalTicker) Next() time.Time { return t.next }
 func (t *internalTicker) Tick(now time.Time) {
 	select {
 	case t.c <- now:
-	case <-time.After(1 * time.Millisecond):
+	default:
 	}
 	t.next = now.Add(t.d)
 	gosched()
