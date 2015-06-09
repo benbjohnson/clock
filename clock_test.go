@@ -264,13 +264,13 @@ func TestMock_AfterFunc_Stop(t *testing.T) {
 func TestMock_Now(t *testing.T) {
 	clock := NewMock()
 	if now := clock.Now(); !now.Equal(time.Unix(0, 0)) {
-		t.Fatalf("expected epoch, got: ", now)
+		t.Fatalf("expected epoch, got: %v", now)
 	}
 
 	// Add 10 seconds and check the time.
 	clock.Add(10 * time.Second)
 	if now := clock.Now(); !now.Equal(time.Unix(10, 0)) {
-		t.Fatalf("expected epoch, got: ", now)
+		t.Fatalf("expected epoch, got: %v", now)
 	}
 }
 
