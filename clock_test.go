@@ -3,7 +3,6 @@ package clock
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -426,12 +425,15 @@ func ExampleMock_After() {
 	clock := NewMock()
 	count := 0
 
+	ready := make(chan struct{})
 	// Create a channel to execute after 10 mock seconds.
 	go func() {
-		<-clock.After(10 * time.Second)
+		ch := clock.After(10 * time.Second)
+		close(ready)
+		<-ch
 		count = 100
 	}()
-	runtime.Gosched()
+	<-ready
 
 	// Print the starting value.
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
@@ -459,7 +461,7 @@ func ExampleMock_AfterFunc() {
 	clock.AfterFunc(10*time.Second, func() {
 		count = 100
 	})
-	runtime.Gosched()
+	gosched()
 
 	// Print the starting value.
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
@@ -483,7 +485,7 @@ func ExampleMock_Sleep() {
 		clock.Sleep(10 * time.Second)
 		count = 100
 	}()
-	runtime.Gosched()
+	gosched()
 
 	// Print the starting value.
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
@@ -502,15 +504,17 @@ func ExampleMock_Ticker() {
 	clock := NewMock()
 	count := 0
 
+	ready := make(chan struct{})
 	// Increment count every mock second.
 	go func() {
 		ticker := clock.Ticker(1 * time.Second)
+		close(ready)
 		for {
 			<-ticker.C
 			count++
 		}
 	}()
-	runtime.Gosched()
+	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
@@ -530,13 +534,15 @@ func ExampleMock_Timer() {
 	clock := NewMock()
 	count := 0
 
+	ready := make(chan struct{})
 	// Increment count after a mock second.
 	go func() {
 		timer := clock.Timer(1 * time.Second)
+		close(ready)
 		<-timer.C
 		count++
 	}()
-	runtime.Gosched()
+	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
