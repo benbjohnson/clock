@@ -1,7 +1,6 @@
 package clock
 
 import (
-	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -294,4 +293,4 @@ func (t *internalTicker) Tick(now time.Time) {
 }
 
 // Sleep momentarily so that other goroutines can process.
-func gosched() { runtime.Gosched() }
+func gosched() { time.Sleep(1 * time.Millisecond) }
