@@ -159,6 +159,10 @@ func TestClock_Timer(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+
+	if timer.Stop() {
+		t.Fatal("timer still running")
+	}
 }
 
 // Ensure that the clock's timer can be stopped.
@@ -170,11 +174,40 @@ func TestClock_Timer_Stop(t *testing.T) {
 	}()
 
 	timer := New().Timer(20 * time.Millisecond)
-	timer.Stop()
+	if !timer.Stop() {
+		t.Fatal("timer not running")
+	}
+	if timer.Stop() {
+		t.Fatal("timer wasn't cancelled")
+	}
 	select {
 	case <-timer.C:
 		t.Fatal("unexpected send")
 	case <-time.After(30 * time.Millisecond):
+	}
+}
+
+// Ensure that the clock's timer can be reset.
+func TestClock_Timer_Reset(t *testing.T) {
+	var ok bool
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		ok = true
+	}()
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		t.Fatal("too late")
+	}()
+	gosched()
+
+	timer := New().Timer(10 * time.Millisecond)
+	if !timer.Reset(20 * time.Millisecond) {
+		t.Fatal("timer not running")
+	}
+
+	<-timer.C
+	if !ok {
+		t.Fatal("too early")
 	}
 }
 
