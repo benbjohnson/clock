@@ -192,11 +192,11 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 	defer m.mu.Unlock()
 	ch := make(chan time.Time, 1)
 	t := &Timer{
-		C:          ch,
-		c:          ch,
-		mock:       m,
-		next:       m.now.Add(d),
-		registered: true,
+		C:       ch,
+		c:       ch,
+		mock:    m,
+		next:    m.now.Add(d),
+		stopped: false,
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
 	return t
@@ -232,13 +232,13 @@ func (a clockTimers) Less(i, j int) bool { return a[i].Next().Before(a[j].Next()
 // Timer represents a single event.
 // The current time will be sent on C, unless the timer was created by AfterFunc.
 type Timer struct {
-	C          <-chan time.Time
-	c          chan time.Time
-	timer      *time.Timer // realtime impl, if set
-	next       time.Time   // next tick time
-	mock       *Mock       // mock clock, if set
-	fn         func()      // AfterFunc function, if set
-	registered bool        // True if active, false if stopped
+	C       <-chan time.Time
+	c       chan time.Time
+	timer   *time.Timer // realtime impl, if set
+	next    time.Time   // next tick time
+	mock    *Mock       // mock clock, if set
+	fn      func()      // AfterFunc function, if set
+	stopped bool        // True if stopped, false if running
 }
 
 // Stop turns off the ticker.
@@ -247,10 +247,10 @@ func (t *Timer) Stop() bool {
 		return t.timer.Stop()
 	}
 
-	wasRegistered := t.registered
+	registered := !t.stopped
 	t.mock.removeClockTimer((*internalTimer)(t))
-	t.registered = false
-	return wasRegistered
+	t.stopped = true
+	return registered
 }
 
 // Reset changes the expiry time of the timer
@@ -260,14 +260,14 @@ func (t *Timer) Reset(d time.Duration) bool {
 	}
 
 	t.next = t.mock.now.Add(d)
-	wasRegistered := t.registered
-	if !t.registered {
+	registered := !t.stopped
+	if t.stopped {
 		t.mock.mu.Lock()
 		t.mock.timers = append(t.mock.timers, (*internalTimer)(t))
 		t.mock.mu.Unlock()
 	}
-	t.registered = true
-	return wasRegistered
+	t.stopped = false
+	return registered
 }
 
 type internalTimer Timer
@@ -280,7 +280,7 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
-	t.registered = false
+	t.stopped = true
 	gosched()
 }
 
