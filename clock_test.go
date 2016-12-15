@@ -306,6 +306,16 @@ func TestMock_Now(t *testing.T) {
 	}
 }
 
+func TestMock_Since(t *testing.T) {
+	clock := NewMock()
+
+	beginning := clock.Now()
+	clock.Add(500 * time.Second)
+	if since := clock.Since(beginning); since.Seconds() != 500 {
+		t.Fatalf("expected 500 since beginning, actually: %v", since.Seconds())
+	}
+}
+
 // Ensure that the mock can sleep for the correct time.
 func TestMock_Sleep(t *testing.T) {
 	var ok int32
