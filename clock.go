@@ -17,7 +17,6 @@ type Clock interface {
 	Now() time.Time
 	Since(t time.Time) time.Duration
 	Sleep(d time.Duration)
-	Tick(d time.Duration) <-chan time.Time
 	Ticker(d time.Duration) *Ticker
 	Timer(d time.Duration) *Timer
 }
@@ -41,8 +40,6 @@ func (c *clock) Now() time.Time { return time.Now() }
 func (c *clock) Since(t time.Time) time.Duration { return time.Since(t) }
 
 func (c *clock) Sleep(d time.Duration) { time.Sleep(d) }
-
-func (c *clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
 
 func (c *clock) Ticker(d time.Duration) *Ticker {
 	t := time.NewTicker(d)
