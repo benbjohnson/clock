@@ -81,21 +81,16 @@ func TestClock_Now(t *testing.T) {
 
 // Ensure that the clock sleeps for the appropriate amount of time.
 func TestClock_Sleep(t *testing.T) {
-	tooLate := make(chan struct{})
 	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		ok.set()
 	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		close(tooLate)
-	}()
 	gosched()
 
 	New().Sleep(20 * time.Millisecond)
 	select {
-	case <-tooLate:
+	case <-time.After(30 * time.Millisecond):
 		t.Fatal("too late")
 	default:
 		if !ok.isSet() {
@@ -106,30 +101,17 @@ func TestClock_Sleep(t *testing.T) {
 
 // Ensure that the clock's ticker ticks correctly.
 func TestClock_Ticker(t *testing.T) {
-	tooLate := make(chan struct{})
-	var ok int32
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		atomic.StoreInt32(&ok, 1)
-	}()
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-	}()
-	gosched()
+	ticker := New().Ticker(100 * time.Millisecond)
+	start := time.Now()
 
-	ticker := New().Ticker(50 * time.Millisecond)
-	var seen bool
 	for {
 		select {
 		case <-ticker.C:
-			if seen {
-				if ok = atomic.LoadInt32(&ok); ok == 0 {
-					t.Fatal("too early")
-				}
-				return
+			if time.Since(start) <= 100*time.Millisecond {
+				t.Fatal("too early")
 			}
-			seen = true
-		case <-tooLate:
+			return
+		case <-time.After(103 * time.Millisecond):
 			t.Fatal("too late")
 		}
 	}
@@ -137,33 +119,23 @@ func TestClock_Ticker(t *testing.T) {
 
 // Ensure that the clock's ticker can stop correctly.
 func TestClock_Ticker_Stp(t *testing.T) {
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-	}()
-	gosched()
-
 	ticker := New().Ticker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Stop()
 
 	select {
 	case <-ticker.C:
-		t.Fatal("unexpected send")
+		t.Fatal("unexpected tick after stop")
 	case <-time.After(30 * time.Millisecond):
 	}
 }
 
 // Ensure that the clock's timer waits correctly.
 func TestClock_Timer(t *testing.T) {
-	tooLate := make(chan struct{})
 	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		ok.set()
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		close(tooLate)
 	}()
 	gosched()
 
@@ -173,17 +145,13 @@ func TestClock_Timer(t *testing.T) {
 		if !ok.isSet() {
 			t.Fatal("too early")
 		}
-	case <-tooLate:
+	case <-time.After(30 * time.Millisecond):
 		t.Fatal("too late")
 	}
 }
 
 // Ensure that the clock's timer can be stopped.
 func TestClock_Timer_Stop(t *testing.T) {
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-	}()
-
 	timer := New().Timer(20 * time.Millisecond)
 	timer.Stop()
 	select {
