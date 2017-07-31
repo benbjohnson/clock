@@ -2,53 +2,71 @@ package clock
 
 import (
 	"fmt"
-	"os"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
+type aBool struct {
+	uint32
+}
+
+func (o *aBool) set() {
+	atomic.StoreUint32(&o.uint32, 1)
+}
+func (o *aBool) isSet() bool {
+	return atomic.LoadUint32(&o.uint32) == 1
+}
+
 // Ensure that the clock's After channel sends at the correct time.
 func TestClock_After(t *testing.T) {
-	var ok bool
+	tooLate := make(chan struct{})
+	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
+		ok.set()
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		close(tooLate)
 	}()
 	gosched()
 
-	<-New().After(20 * time.Millisecond)
-	if !ok {
-		t.Fatal("too early")
+	select {
+	case <-New().After(20 * time.Millisecond):
+		if !ok.isSet() {
+			t.Fatal("too early")
+		}
+	case <-tooLate:
+		t.Fatal("too late")
 	}
 }
 
 // Ensure that the clock's AfterFunc executes at the correct time.
 func TestClock_AfterFunc(t *testing.T) {
-	var ok bool
+	finished := make(chan struct{})
+	tooLate := make(chan struct{})
+	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
+		ok.set()
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		close(tooLate)
 	}()
 	gosched()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
 	New().AfterFunc(20*time.Millisecond, func() {
-		wg.Done()
+		close(finished)
 	})
-	wg.Wait()
-	if !ok {
-		t.Fatal("too early")
+	select {
+	case <-finished:
+		if !ok.isSet() {
+			t.Fatal("too early")
+		}
+	case <-tooLate:
+		t.Fatal("too late")
 	}
 }
 
@@ -63,151 +81,83 @@ func TestClock_Now(t *testing.T) {
 
 // Ensure that the clock sleeps for the appropriate amount of time.
 func TestClock_Sleep(t *testing.T) {
-	var ok bool
+	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		ok.set()
 	}()
 	gosched()
 
 	New().Sleep(20 * time.Millisecond)
-	if !ok {
-		t.Fatal("too early")
-	}
-}
-
-// Ensure that the clock ticks correctly.
-func TestClock_Tick(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(50 * time.Millisecond)
+	select {
+	case <-time.After(30 * time.Millisecond):
 		t.Fatal("too late")
-	}()
-	gosched()
-
-	c := New().Tick(20 * time.Millisecond)
-	<-c
-	<-c
-	if !ok {
-		t.Fatal("too early")
+	default:
+		if !ok.isSet() {
+			t.Fatal("too early")
+		}
 	}
 }
 
 // Ensure that the clock's ticker ticks correctly.
 func TestClock_Ticker(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
+	ticker := New().Ticker(100 * time.Millisecond)
+	start := time.Now()
 
-	ticker := New().Ticker(50 * time.Millisecond)
-	<-ticker.C
-	<-ticker.C
-	if !ok {
-		t.Fatal("too early")
+	for {
+		select {
+		case <-ticker.C:
+			if time.Since(start) <= 100*time.Millisecond {
+				t.Fatal("too early")
+			}
+			return
+		case <-time.After(103 * time.Millisecond):
+			t.Fatal("too late")
+		}
 	}
 }
 
 // Ensure that the clock's ticker can stop correctly.
 func TestClock_Ticker_Stp(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	gosched()
-
 	ticker := New().Ticker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Stop()
+
 	select {
 	case <-ticker.C:
-		t.Fatal("unexpected send")
+		t.Fatal("unexpected tick after stop")
 	case <-time.After(30 * time.Millisecond):
 	}
 }
 
 // Ensure that the clock's timer waits correctly.
 func TestClock_Timer(t *testing.T) {
-	var ok bool
+	ok := new(aBool)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		ok.set()
 	}()
 	gosched()
 
 	timer := New().Timer(20 * time.Millisecond)
-	<-timer.C
-	if !ok {
-		t.Fatal("too early")
-	}
-
-	if timer.Stop() {
-		t.Fatal("timer still running")
+	select {
+	case <-timer.C:
+		if !ok.isSet() {
+			t.Fatal("too early")
+		}
+	case <-time.After(30 * time.Millisecond):
+		t.Fatal("too late")
 	}
 }
 
 // Ensure that the clock's timer can be stopped.
 func TestClock_Timer_Stop(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-
 	timer := New().Timer(20 * time.Millisecond)
-	if !timer.Stop() {
-		t.Fatal("timer not running")
-	}
-	if timer.Stop() {
-		t.Fatal("timer wasn't cancelled")
-	}
+	timer.Stop()
 	select {
 	case <-timer.C:
 		t.Fatal("unexpected send")
 	case <-time.After(30 * time.Millisecond):
-	}
-}
-
-// Ensure that the clock's timer can be reset.
-func TestClock_Timer_Reset(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
-	timer := New().Timer(10 * time.Millisecond)
-	if !timer.Reset(20 * time.Millisecond) {
-		t.Fatal("timer not running")
-	}
-
-	<-timer.C
-	if !ok {
-		t.Fatal("too early")
 	}
 }
 
@@ -303,16 +253,6 @@ func TestMock_Now(t *testing.T) {
 	clock.Add(10 * time.Second)
 	if now := clock.Now(); !now.Equal(time.Unix(10, 0)) {
 		t.Fatalf("expected epoch, got: %v", now)
-	}
-}
-
-func TestMock_Since(t *testing.T) {
-	clock := NewMock()
-
-	beginning := clock.Now()
-	clock.Add(500 * time.Second)
-	if since := clock.Since(beginning); since.Seconds() != 500 {
-		t.Fatalf("expected 500 since beginning, actually: %v", since.Seconds())
 	}
 }
 
@@ -463,10 +403,14 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	}
 }
 
+type count struct{ int32 }
+
+func (c *count) set(d int32) { atomic.StoreInt32(&c.int32, d) }
+func (c *count) load() int32 { return atomic.LoadInt32(&c.int32) }
+
 func ExampleMock_After() {
-	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Create a channel to execute after 10 mock seconds.
@@ -474,20 +418,20 @@ func ExampleMock_After() {
 		ch := clock.After(10 * time.Second)
 		close(ready)
 		<-ch
-		count = 100
+		count.set(100)
 	}()
 	<-ready
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 5 seconds and print the value again.
 	clock.Add(5 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 5 seconds to the tick time and check the value.
 	clock.Add(5 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -496,22 +440,21 @@ func ExampleMock_After() {
 }
 
 func ExampleMock_AfterFunc() {
-	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	count := new(count)
 
 	// Execute a function after 10 mock seconds.
 	clock.AfterFunc(10*time.Second, func() {
-		count = 100
+		count.set(100)
 	})
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -519,23 +462,22 @@ func ExampleMock_AfterFunc() {
 }
 
 func ExampleMock_Sleep() {
-	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	count := new(count)
 
 	// Execute a function after 10 mock seconds.
 	go func() {
 		clock.Sleep(10 * time.Second)
-		count = 100
+		count.set(100)
 	}()
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -543,9 +485,8 @@ func ExampleMock_Sleep() {
 }
 
 func ExampleMock_Ticker() {
-	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Increment count every mock second.
@@ -554,18 +495,18 @@ func ExampleMock_Ticker() {
 		close(ready)
 		for {
 			<-ticker.C
-			count++
+			count.set(count.load() + 1)
 		}
 	}()
 	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count)
+	fmt.Printf("Count is %d after 10 seconds\n", count.load())
 
 	// Move the clock forward 5 more seconds and print the new value.
 	clock.Add(5 * time.Second)
-	fmt.Printf("Count is %d after 15 seconds\n", count)
+	fmt.Printf("Count is %d after 15 seconds\n", count.load())
 
 	// Output:
 	// Count is 10 after 10 seconds
@@ -573,9 +514,8 @@ func ExampleMock_Ticker() {
 }
 
 func ExampleMock_Timer() {
-	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Increment count after a mock second.
@@ -583,17 +523,35 @@ func ExampleMock_Timer() {
 		timer := clock.Timer(1 * time.Second)
 		close(ready)
 		<-timer.C
-		count++
+		count.set(count.load() + 1)
+
 	}()
 	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count)
+	fmt.Printf("Count is %d after 10 seconds\n", count.load())
 
 	// Output:
 	// Count is 1 after 10 seconds
 }
 
-func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
-func warnf(msg string, v ...interface{}) { fmt.Fprintf(os.Stderr, msg+"\n", v...) }
+func TestMock_Timer(t *testing.T) {
+	clock := NewMock()
+
+	tA := clock.Timer(0)
+	clock.Add(time.Microsecond)
+	<-tA.C
+	wasRunning := tA.Reset(time.Millisecond)
+	if wasRunning {
+		t.Fatal("timer.Stop returned true after timer fired")
+	}
+	tX := clock.Timer(3 * time.Millisecond)
+	clock.Add(2 * time.Millisecond)
+
+	select {
+	case <-tA.C:
+	case <-tX.C:
+		t.Fatal("3 < 1")
+	}
+}

@@ -17,7 +17,6 @@ type Clock interface {
 	Now() time.Time
 	Since(t time.Time) time.Duration
 	Sleep(d time.Duration)
-	Tick(d time.Duration) <-chan time.Time
 	Ticker(d time.Duration) *Ticker
 	Timer(d time.Duration) *Timer
 }
@@ -41,8 +40,6 @@ func (c *clock) Now() time.Time { return time.Now() }
 func (c *clock) Since(t time.Time) time.Duration { return time.Since(t) }
 
 func (c *clock) Sleep(d time.Duration) { time.Sleep(d) }
-
-func (c *clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
 
 func (c *clock) Ticker(d time.Duration) *Ticker {
 	t := time.NewTicker(d)
@@ -240,13 +237,15 @@ func (a clockTimers) Less(i, j int) bool { return a[i].Next().Before(a[j].Next()
 // Timer represents a single event.
 // The current time will be sent on C, unless the timer was created by AfterFunc.
 type Timer struct {
-	C       <-chan time.Time
-	c       chan time.Time
-	timer   *time.Timer // realtime impl, if set
-	next    time.Time   // next tick time
-	mock    *Mock       // mock clock, if set
-	fn      func()      // AfterFunc function, if set
-	stopped bool        // True if stopped, false if running
+	C     <-chan time.Time
+	c     chan time.Time
+	timer *time.Timer // realtime impl, if set
+	next  time.Time   // next tick time
+	mock  *Mock       // mock clock, if set
+	fn    func()      // AfterFunc function, if set
+
+	smu     sync.Mutex
+	stopped bool // True if stopped, false if running
 }
 
 // Stop turns off the ticker.
@@ -257,7 +256,9 @@ func (t *Timer) Stop() bool {
 
 	registered := !t.stopped
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.smu.Lock()
 	t.stopped = true
+	t.smu.Unlock()
 	return registered
 }
 
@@ -274,7 +275,9 @@ func (t *Timer) Reset(d time.Duration) bool {
 		t.mock.timers = append(t.mock.timers, (*internalTimer)(t))
 		t.mock.mu.Unlock()
 	}
+	t.smu.Lock()
 	t.stopped = false
+	t.smu.Unlock()
 	return registered
 }
 
@@ -288,7 +291,9 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.smu.Lock()
 	t.stopped = true
+	t.smu.Unlock()
 	gosched()
 }
 
