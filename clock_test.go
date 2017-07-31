@@ -435,14 +435,14 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	}
 }
 
-type Count struct{ int32 }
+type count struct{ int32 }
 
-func (c *Count) Set(d int32) { atomic.StoreInt32(&c.int32, d) }
-func (c *Count) Load() int32 { return atomic.LoadInt32(&c.int32) }
+func (c *count) set(d int32) { atomic.StoreInt32(&c.int32, d) }
+func (c *count) load() int32 { return atomic.LoadInt32(&c.int32) }
 
 func ExampleMock_After() {
 	clock := NewMock()
-	count := new(Count)
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Create a channel to execute after 10 mock seconds.
@@ -450,20 +450,20 @@ func ExampleMock_After() {
 		ch := clock.After(10 * time.Second)
 		close(ready)
 		<-ch
-		count.Set(100)
+		count.set(100)
 	}()
 	<-ready
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 5 seconds and print the value again.
 	clock.Add(5 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 5 seconds to the tick time and check the value.
 	clock.Add(5 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -473,20 +473,20 @@ func ExampleMock_After() {
 
 func ExampleMock_AfterFunc() {
 	clock := NewMock()
-	count := new(Count)
+	count := new(count)
 
 	// Execute a function after 10 mock seconds.
 	clock.AfterFunc(10*time.Second, func() {
-		count.Set(100)
+		count.set(100)
 	})
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -495,21 +495,21 @@ func ExampleMock_AfterFunc() {
 
 func ExampleMock_Sleep() {
 	clock := NewMock()
-	count := new(Count)
+	count := new(count)
 
 	// Execute a function after 10 mock seconds.
 	go func() {
 		clock.Sleep(10 * time.Second)
-		count.Set(100)
+		count.set(100)
 	}()
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.Load())
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.load())
 
 	// Output:
 	// 1970-01-01 00:00:00 +0000 UTC: 0
@@ -518,7 +518,7 @@ func ExampleMock_Sleep() {
 
 func ExampleMock_Ticker() {
 	clock := NewMock()
-	count := new(Count)
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Increment count every mock second.
@@ -527,18 +527,18 @@ func ExampleMock_Ticker() {
 		close(ready)
 		for {
 			<-ticker.C
-			count.Set(count.Load() + 1)
+			count.set(count.load() + 1)
 		}
 	}()
 	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count.Load())
+	fmt.Printf("Count is %d after 10 seconds\n", count.load())
 
 	// Move the clock forward 5 more seconds and print the new value.
 	clock.Add(5 * time.Second)
-	fmt.Printf("Count is %d after 15 seconds\n", count.Load())
+	fmt.Printf("Count is %d after 15 seconds\n", count.load())
 
 	// Output:
 	// Count is 10 after 10 seconds
@@ -547,7 +547,7 @@ func ExampleMock_Ticker() {
 
 func ExampleMock_Timer() {
 	clock := NewMock()
-	count := new(Count)
+	count := new(count)
 
 	ready := make(chan struct{})
 	// Increment count after a mock second.
@@ -555,14 +555,14 @@ func ExampleMock_Timer() {
 		timer := clock.Timer(1 * time.Second)
 		close(ready)
 		<-timer.C
-		count.Set(count.Load() + 1)
+		count.set(count.load() + 1)
 
 	}()
 	<-ready
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count.Load())
+	fmt.Printf("Count is %d after 10 seconds\n", count.load())
 
 	// Output:
 	// Count is 1 after 10 seconds
