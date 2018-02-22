@@ -1,3 +1,5 @@
+// Copyright (c) 2014 Ben Johnson
+
 package clock
 
 import (
@@ -72,7 +74,9 @@ func NewMock() *Mock {
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Add(d time.Duration) {
 	// Calculate the final current time.
+	m.mu.Lock()
 	t := m.now.Add(d)
+	m.mu.Unlock()
 
 	// Continue to execute timers until there are no more before the new time.
 	for {
@@ -240,6 +244,7 @@ func (a clockTimers) Less(i, j int) bool { return a[i].Next().Before(a[j].Next()
 // Timer represents a single event.
 // The current time will be sent on C, unless the timer was created by AfterFunc.
 type Timer struct {
+	sync.RWMutex
 	C       <-chan time.Time
 	c       chan time.Time
 	timer   *time.Timer // realtime impl, if set
@@ -257,7 +262,9 @@ func (t *Timer) Stop() bool {
 
 	registered := !t.stopped
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.Lock()
 	t.stopped = true
+	t.Unlock()
 	return registered
 }
 
@@ -280,7 +287,12 @@ func (t *Timer) Reset(d time.Duration) bool {
 
 type internalTimer Timer
 
-func (t *internalTimer) Next() time.Time { return t.next }
+func (t *internalTimer) Next() time.Time {
+	defer t.RUnlock()
+	t.RLock()
+	return t.next
+}
+
 func (t *internalTimer) Tick(now time.Time) {
 	if t.fn != nil {
 		t.fn()
@@ -294,6 +306,7 @@ func (t *internalTimer) Tick(now time.Time) {
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
 type Ticker struct {
+	sync.RWMutex
 	C      <-chan time.Time
 	c      chan time.Time
 	ticker *time.Ticker  // realtime impl, if set
@@ -313,13 +326,20 @@ func (t *Ticker) Stop() {
 
 type internalTicker Ticker
 
-func (t *internalTicker) Next() time.Time { return t.next }
+func (t *internalTicker) Next() time.Time {
+	defer t.RUnlock()
+	t.RLock()
+	return t.next
+}
+
 func (t *internalTicker) Tick(now time.Time) {
 	select {
 	case t.c <- now:
 	default:
 	}
+	t.Lock()
 	t.next = now.Add(t.d)
+	t.Unlock()
 	gosched()
 }
 
