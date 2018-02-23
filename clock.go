@@ -3,6 +3,7 @@
 package clock
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -73,6 +74,10 @@ func NewMock() *Mock {
 // Add moves the current time of the mock clock forward by the duration.
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Add(d time.Duration) {
+	if d < 0 {
+		panic(fmt.Sprintf("Adding negative duration %s", d))
+	}
+
 	// Calculate the final current time.
 	m.mu.Lock()
 	t := m.now.Add(d)
@@ -97,6 +102,11 @@ func (m *Mock) Add(d time.Duration) {
 // Set sets the current time of the mock clock to a specific one.
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Set(t time.Time) {
+
+	if now := m.Now(); now.After(t) {
+		panic(fmt.Sprintf("Setting time %s in the past (now %s)", t, now))
+	}
+
 	// Continue to execute timers until there are no more before the new time.
 	for {
 		if !m.runNextTimer(t) {

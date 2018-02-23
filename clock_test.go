@@ -130,11 +130,9 @@ func TestClock_Ticker(t *testing.T) {
 }
 
 // Ensure that the clock's ticker can stop correctly.
-func TestClock_Ticker_Stp(t *testing.T) {
-	var ok bool
+func TestClock_Ticker_Stop(t *testing.T) {
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
 	}()
 	gosched()
 
@@ -175,10 +173,8 @@ func TestClock_Timer(t *testing.T) {
 
 // Ensure that the clock's timer can be stopped.
 func TestClock_Timer_Stop(t *testing.T) {
-	var ok bool
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		ok = true
 	}()
 
 	timer := New().Timer(20 * time.Millisecond)
@@ -628,6 +624,28 @@ func ExampleMock_Timer() {
 
 	// Output:
 	// Count is 1 after 10 seconds
+}
+
+func TestMock_TimerMany(t *testing.T) {
+	// Create a new mock clock.
+	clock := NewMock()
+
+	t1 := clock.Timer(1 * time.Second)
+	t2 := clock.Timer(2 * time.Second)
+
+	done1 := false
+	done2 := false
+
+	clock.Add(3 * time.Second)
+
+	for !done1 && !done2 {
+		select {
+		case <-t1.C:
+			done1 = true
+		case <-t2.C:
+			done2 = true
+		}
+	}
 }
 
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
