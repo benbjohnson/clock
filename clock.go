@@ -310,7 +310,9 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.Lock()
 	t.stopped = true
+	t.Unlock()
 	gosched()
 }
 
