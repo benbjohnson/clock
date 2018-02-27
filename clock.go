@@ -94,6 +94,7 @@ func (m *Mock) Set(t time.Time) {
 		m.now = t
 	}
 	m.mu.Unlock()
+	runtime.Gosched()
 }
 
 // runNextTimer returns the next timer in chronological order and moves the
@@ -179,6 +180,13 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 	}
 	heap.Push(&m.timers, t)
 	return t
+}
+
+func (m *Mock) TestTicker(d time.Duration) (*Ticker, <-chan time.Time) {
+	t := m.Ticker(d)
+	ch := make(chan time.Time)
+	t.dropC = ch
+	return t, ch
 }
 
 // Timer creates a new instance of Timer.
@@ -306,6 +314,7 @@ type Ticker struct {
 	next       time.Time     // next tick time
 	mock       *Mock         // mock clock, if set
 	d          time.Duration // time between ticks
+	dropC      chan<- time.Time
 }
 
 // Stop turns off the ticker.
@@ -314,6 +323,10 @@ func (t *Ticker) Stop() {
 		t.realTicker.Stop()
 	} else {
 		t.mock.removeClockTimer(t)
+	}
+	if t.dropC != nil {
+		close(t.dropC)
+		t.dropC = nil
 	}
 }
 
@@ -324,5 +337,8 @@ func (t *Ticker) execute(now time.Time) {
 	select {
 	case t.c <- now:
 	default:
+		if t.dropC != nil {
+			t.dropC <- now
+		}
 	}
 }
