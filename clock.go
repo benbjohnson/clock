@@ -31,26 +31,26 @@ func New() Clock {
 // clock implements a real-time clock by simply wrapping the time package functions.
 type clock struct{}
 
-func (clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+func (*clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
-func (clock) AfterFunc(d time.Duration, f func()) *Timer {
+func (*clock) AfterFunc(d time.Duration, f func()) *Timer {
 	return &Timer{realTimer: time.AfterFunc(d, f)}
 }
 
-func (clock) Now() time.Time { return time.Now() }
+func (*clock) Now() time.Time { return time.Now() }
 
-func (clock) Since(t time.Time) time.Duration { return time.Since(t) }
+func (*clock) Since(t time.Time) time.Duration { return time.Since(t) }
 
-func (clock) Sleep(d time.Duration) { time.Sleep(d) }
+func (*clock) Sleep(d time.Duration) { time.Sleep(d) }
 
-func (clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
+func (*clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
 
-func (clock) Ticker(d time.Duration) *Ticker {
+func (*clock) Ticker(d time.Duration) *Ticker {
 	t := time.NewTicker(d)
 	return &Ticker{C: t.C, realTicker: t}
 }
 
-func (clock) Timer(d time.Duration) *Timer {
+func (*clock) Timer(d time.Duration) *Timer {
 	t := time.NewTimer(d)
 	return &Timer{C: t.C, realTimer: t}
 }
