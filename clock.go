@@ -1,7 +1,8 @@
 package clock
 
 import (
-	"sort"
+	"container/heap"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -30,28 +31,28 @@ func New() Clock {
 // clock implements a real-time clock by simply wrapping the time package functions.
 type clock struct{}
 
-func (c *clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+func (*clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
-func (c *clock) AfterFunc(d time.Duration, f func()) *Timer {
-	return &Timer{timer: time.AfterFunc(d, f)}
+func (*clock) AfterFunc(d time.Duration, f func()) *Timer {
+	return &Timer{realTimer: time.AfterFunc(d, f)}
 }
 
-func (c *clock) Now() time.Time { return time.Now() }
+func (*clock) Now() time.Time { return time.Now() }
 
-func (c *clock) Since(t time.Time) time.Duration { return time.Since(t) }
+func (*clock) Since(t time.Time) time.Duration { return time.Since(t) }
 
-func (c *clock) Sleep(d time.Duration) { time.Sleep(d) }
+func (*clock) Sleep(d time.Duration) { time.Sleep(d) }
 
-func (c *clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
+func (*clock) Tick(d time.Duration) <-chan time.Time { return time.Tick(d) }
 
-func (c *clock) Ticker(d time.Duration) *Ticker {
+func (*clock) Ticker(d time.Duration) *Ticker {
 	t := time.NewTicker(d)
-	return &Ticker{C: t.C, ticker: t}
+	return &Ticker{C: t.C, realTicker: t}
 }
 
-func (c *clock) Timer(d time.Duration) *Timer {
+func (*clock) Timer(d time.Duration) *Timer {
 	t := time.NewTimer(d)
-	return &Timer{C: t.C, timer: t}
+	return &Timer{C: t.C, realTimer: t}
 }
 
 // Mock represents a mock clock that only moves forward programmically.
@@ -69,25 +70,9 @@ func NewMock() *Mock {
 }
 
 // Add moves the current time of the mock clock forward by the duration.
-// This should only be called from a single goroutine at a time.
+// This is safe for concurrent use.
 func (m *Mock) Add(d time.Duration) {
-	// Calculate the final current time.
-	t := m.now.Add(d)
-
-	// Continue to execute timers until there are no more before the new time.
-	for {
-		if !m.runNextTimer(t) {
-			break
-		}
-	}
-
-	// Ensure that we end with the new time.
-	m.mu.Lock()
-	m.now = t
-	m.mu.Unlock()
-
-	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
+	m.Set(m.Now().Add(d))
 }
 
 // Set sets the current time of the mock clock to a specific one.
@@ -95,49 +80,52 @@ func (m *Mock) Add(d time.Duration) {
 func (m *Mock) Set(t time.Time) {
 	// Continue to execute timers until there are no more before the new time.
 	for {
-		if !m.runNextTimer(t) {
+		if timer, tick := m.runNextTimer(t); timer != nil {
+			timer.execute(tick)
+			runtime.Gosched()
+		} else {
 			break
 		}
 	}
 
 	// Ensure that we end with the new time.
 	m.mu.Lock()
-	m.now = t
+	if t.After(m.now) {
+		m.now = t
+	}
 	m.mu.Unlock()
-
-	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
+	runtime.Gosched()
 }
 
-// runNextTimer executes the next timer in chronological order and moves the
+// runNextTimer returns the next timer in chronological order and moves the
 // current time to the timer's next tick time. The next time is not executed if
-// it's next time if after the max time. Returns true if a timer is executed.
-func (m *Mock) runNextTimer(max time.Time) bool {
+// its next time if after the max time. Returns true if a timer is executed.
+func (m *Mock) runNextTimer(until time.Time) (clockTimer, time.Time) {
 	m.mu.Lock()
-
-	// Sort timers by time.
-	sort.Sort(m.timers)
+	defer m.mu.Unlock()
 
 	// If we have no more timers then exit.
 	if len(m.timers) == 0 {
-		m.mu.Unlock()
-		return false
+		return nil, time.Time{}
 	}
 
-	// Retrieve next timer. Exit if next tick is after new time.
+	// Retrieve next timer. Exit if it fires after `until`.
 	t := m.timers[0]
-	if t.Next().After(max) {
-		m.mu.Unlock()
-		return false
+	at := t.tick()
+
+	if at.After(until) {
+		return nil, time.Time{}
 	}
 
-	// Move "now" forward and unlock clock.
-	m.now = t.Next()
-	m.mu.Unlock()
-
-	// Execute timer.
-	t.Tick(m.now)
-	return true
+	// Move "now" forward and remove the timer.
+	m.now = at
+	if t.singleshot() {
+		heap.Pop(&m.timers)
+	} else {
+		t.update()
+		heap.Fix(&m.timers, 0)
+	}
+	return t, at
 }
 
 // After waits for the duration to elapse and then sends the current time on the returned channel.
@@ -190,8 +178,15 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 		d:    d,
 		next: m.now.Add(d),
 	}
-	m.timers = append(m.timers, (*internalTicker)(t))
+	heap.Push(&m.timers, t)
 	return t
+}
+
+func (m *Mock) TestTicker(d time.Duration) (*Ticker, <-chan time.Time) {
+	t := m.Ticker(d)
+	ch := make(chan time.Time)
+	t.dropC = ch
+	return t, ch
 }
 
 // Timer creates a new instance of Timer.
@@ -206,122 +201,144 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		next:    m.now.Add(d),
 		stopped: false,
 	}
-	m.timers = append(m.timers, (*internalTimer)(t))
+	heap.Push(&m.timers, t)
 	return t
 }
 
 func (m *Mock) removeClockTimer(t clockTimer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.removeClockTimerLocked(t)
+}
+
+func (m *Mock) removeClockTimerLocked(t clockTimer) {
 	for i, timer := range m.timers {
 		if timer == t {
-			copy(m.timers[i:], m.timers[i+1:])
-			m.timers[len(m.timers)-1] = nil
-			m.timers = m.timers[:len(m.timers)-1]
-			break
+			heap.Remove(&m.timers, i)
+			return
 		}
 	}
-	sort.Sort(m.timers)
 }
 
-// clockTimer represents an object with an associated start time.
+// clockTimer represents an object with an associated "tick" time.
 type clockTimer interface {
-	Next() time.Time
-	Tick(time.Time)
+	tick() time.Time
+	execute(time.Time)
+	singleshot() bool
+	update()
 }
 
-// clockTimers represents a list of sortable timers.
+// clockTimers represents a heap of timers.
 type clockTimers []clockTimer
 
 func (a clockTimers) Len() int           { return len(a) }
 func (a clockTimers) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a clockTimers) Less(i, j int) bool { return a[i].Next().Before(a[j].Next()) }
+func (a clockTimers) Less(i, j int) bool { return a[i].tick().Before(a[j].tick()) }
+func (a *clockTimers) Push(x interface{}) {
+	t := x.(clockTimer)
+	(*a) = append(*a, t)
+}
+func (a *clockTimers) Pop() interface{} {
+	old := *a
+	n := len(old)
+	x := old[n-1]
+	*a = old[0 : n-1]
+	return x
+}
 
 // Timer represents a single event.
 // The current time will be sent on C, unless the timer was created by AfterFunc.
 type Timer struct {
 	C       <-chan time.Time
 	c       chan time.Time
-	timer   *time.Timer // realtime impl, if set
-	next    time.Time   // next tick time
-	mock    *Mock       // mock clock, if set
-	fn      func()      // AfterFunc function, if set
-	stopped bool        // True if stopped, false if running
+	next    time.Time // next tick time
+	mock    *Mock     // mock clock, if set
+	fn      func()    // AfterFunc function, if set
+	stopped bool      // True if stopped, false if running
+
+	// For the real clock impl, only this field is used.
+	realTimer *time.Timer
 }
 
 // Stop turns off the ticker.
 func (t *Timer) Stop() bool {
-	if t.timer != nil {
-		return t.timer.Stop()
+	if t.realTimer != nil {
+		return t.realTimer.Stop()
 	}
 
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+
 	registered := !t.stopped
-	t.mock.removeClockTimer((*internalTimer)(t))
+	t.mock.removeClockTimerLocked(t)
 	t.stopped = true
 	return registered
 }
 
 // Reset changes the expiry time of the timer
 func (t *Timer) Reset(d time.Duration) bool {
-	if t.timer != nil {
-		return t.timer.Reset(d)
+	if t.realTimer != nil {
+		return t.realTimer.Reset(d)
 	}
 
-	t.next = t.mock.now.Add(d)
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+
 	registered := !t.stopped
-	if t.stopped {
-		t.mock.mu.Lock()
-		t.mock.timers = append(t.mock.timers, (*internalTimer)(t))
-		t.mock.mu.Unlock()
-	}
 	t.stopped = false
+	t.mock.removeClockTimerLocked(t)
+	t.next = t.mock.now.Add(d)
+	heap.Push(&t.mock.timers, t)
+
 	return registered
 }
 
-type internalTimer Timer
-
-func (t *internalTimer) Next() time.Time { return t.next }
-func (t *internalTimer) Tick(now time.Time) {
+func (t *Timer) tick() time.Time  { return t.next }
+func (t *Timer) singleshot() bool { return true }
+func (t *Timer) update()          {}
+func (t *Timer) execute(now time.Time) {
 	if t.fn != nil {
 		t.fn()
 	} else {
 		t.c <- now
 	}
-	t.mock.removeClockTimer((*internalTimer)(t))
+
 	t.stopped = true
-	gosched()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
 type Ticker struct {
-	C      <-chan time.Time
-	c      chan time.Time
-	ticker *time.Ticker  // realtime impl, if set
-	next   time.Time     // next tick time
-	mock   *Mock         // mock clock, if set
-	d      time.Duration // time between ticks
+	C          <-chan time.Time
+	c          chan time.Time
+	realTicker *time.Ticker  // realtime impl, if set
+	next       time.Time     // next tick time
+	mock       *Mock         // mock clock, if set
+	d          time.Duration // time between ticks
+	dropC      chan<- time.Time
 }
 
 // Stop turns off the ticker.
 func (t *Ticker) Stop() {
-	if t.ticker != nil {
-		t.ticker.Stop()
+	if t.realTicker != nil {
+		t.realTicker.Stop()
 	} else {
-		t.mock.removeClockTimer((*internalTicker)(t))
+		t.mock.removeClockTimer(t)
+	}
+	if t.dropC != nil {
+		close(t.dropC)
+		t.dropC = nil
 	}
 }
 
-type internalTicker Ticker
-
-func (t *internalTicker) Next() time.Time { return t.next }
-func (t *internalTicker) Tick(now time.Time) {
+func (t *Ticker) tick() time.Time  { return t.next }
+func (t *Ticker) singleshot() bool { return false }
+func (t *Ticker) update()          { t.next = t.next.Add(t.d) }
+func (t *Ticker) execute(now time.Time) {
 	select {
 	case t.c <- now:
 	default:
+		if t.dropC != nil {
+			t.dropC <- now
+		}
 	}
-	t.next = now.Add(t.d)
-	gosched()
 }
-
-// Sleep momentarily so that other goroutines can process.
-func gosched() { time.Sleep(1 * time.Millisecond) }
