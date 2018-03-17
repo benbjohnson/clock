@@ -172,9 +172,6 @@ func (m *mockClock) Add(d time.Duration) {
 	m.mu.Lock()
 	m.now = t
 	m.mu.Unlock()
-
-	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
 }
 
 // Set sets the current time of the mock clock to a specific one.
@@ -196,9 +193,6 @@ func (m *mockClock) Set(t time.Time) {
 	m.mu.Lock()
 	m.now = t
 	m.mu.Unlock()
-
-	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
 }
 
 // runNextTimer executes the next timer in chronological order and moves the
@@ -297,7 +291,8 @@ func (m *mockClock) Tick(d time.Duration) <-chan time.Time {
 func (m *mockClock) Ticker(d time.Duration) *Ticker {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ch := make(chan time.Time, 1)
+	// Use a buffered channel so we don't block in tests
+	ch := make(chan time.Time, 1000)
 	t := &Ticker{
 		C:    ch,
 		c:    ch,
@@ -320,6 +315,7 @@ func (m *mockClock) timerInternal(d time.Duration) *Timer {
 		next:    m.now.Add(d),
 		stopped: false,
 	}
+	m.callHookNoLock(HookBeforeTimer)
 
 	if !t.next.After(m.now) {
 		t.c <- m.now
@@ -332,7 +328,6 @@ func (m *mockClock) timerInternal(d time.Duration) *Timer {
 
 // Timer creates a new instance of Timer.
 func (m *mockClock) Timer(d time.Duration) *Timer {
-	m.callHook(HookBeforeTimer)
 	tmr := m.timerInternal(d)
 	m.callHook(HookAfterTimer)
 	return tmr
@@ -392,13 +387,17 @@ func hookPlaceMatches(c *hookCall) bool {
 	return false
 }
 
-func (m *mockClock) callHook(point HookPoint) {
-	m.mu.Lock()
+func (m *mockClock) callHookNoLock(point HookPoint) {
 	for _, c := range m.hooks[point] {
 		if hookPlaceMatches(c) {
 			c.h(m.now)
 		}
 	}
+}
+
+func (m *mockClock) callHook(point HookPoint) {
+	m.mu.Lock()
+	m.callHookNoLock(point)
 	m.mu.Unlock()
 }
 
@@ -540,7 +539,6 @@ func (t *internalTimer) Tick(now time.Time) {
 	t.Lock()
 	t.stopped = true
 	t.Unlock()
-	gosched()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
@@ -572,15 +570,8 @@ func (t *internalTicker) Next() time.Time {
 }
 
 func (t *internalTicker) Tick(now time.Time) {
-	select {
-	case t.c <- now:
-	default:
-	}
+	t.c <- now
 	t.Lock()
 	t.next = now.Add(t.d)
 	t.Unlock()
-	gosched()
 }
-
-// Sleep momentarily so that other goroutines can process.
-func gosched() { time.Sleep(1 * time.Millisecond) }

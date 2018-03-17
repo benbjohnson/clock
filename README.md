@@ -1,5 +1,6 @@
 clock [![Build Status](https://drone.io/github.com/benbjohnson/clock/status.png)](https://drone.io/github.com/benbjohnson/clock/latest) [![Coverage Status](https://coveralls.io/repos/benbjohnson/clock/badge.png?branch=master)](https://coveralls.io/r/benbjohnson/clock?branch=master) [![GoDoc](https://godoc.org/github.com/benbjohnson/clock?status.png)](https://godoc.org/github.com/benbjohnson/clock) ![Project status](http://img.shields.io/status/experimental.png?color=red)
 =====
+NOTE:  This README has not yet been updated to reflect the fixes/changes.  Please refer to the source code in the meantime.
 
 Clock is a small library for mocking time in Go. It provides an interface
 around the standard library's [`time`][time] package so that the application
@@ -92,7 +93,6 @@ go func() {
         count++
     }
 }()
-runtime.Gosched()
 
 // Move the clock forward 10 second.
 mock.Add(10 * time.Second)
