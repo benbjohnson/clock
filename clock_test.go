@@ -292,6 +292,31 @@ func TestMock_Ticker_Stop(t *testing.T) {
 	}
 }
 
+// Ensure that the mock's Stop method wakes sleepers.
+func TestMock_Mock_Stop(t *testing.T) {
+	mock := NewMock()
+	clock := Clock(mock)
+
+	ch := make(chan struct{})
+	go func() {
+		clock.Sleep(time.Second)
+		ch <- struct{}{}
+	}()
+	mock.Stop()
+	<-ch
+
+	// Timers finish immediately
+	timer := clock.Timer(time.Hour)
+	<-timer.C
+
+	// Tickers finish immediately
+	ticker := clock.Ticker(time.Hour)
+	<-ticker.C
+
+	// Sleep returns immediately
+	clock.Sleep(time.Hour)
+}
+
 // Ensure that multiple tickers can be used together.
 func TestMock_Ticker_Multi(t *testing.T) {
 	// This test repeats until a perfect execution happens.
