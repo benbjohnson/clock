@@ -58,9 +58,10 @@ func (*clock) Timer(d time.Duration) *Timer {
 // Mock represents a mock clock that only moves forward programmically.
 // It can be preferable to a real-time clock when testing time-based functionality.
 type Mock struct {
-	mu     sync.Mutex
-	now    time.Time   // current time
-	timers clockTimers // tickers & timers
+	mu      sync.Mutex
+	now     time.Time   // current time
+	timers  clockTimers // tickers & timers
+	stopped bool
 }
 
 // NewMock returns an instance of a mock clock.
@@ -80,7 +81,7 @@ func (m *Mock) Add(d time.Duration) {
 func (m *Mock) Set(t time.Time) {
 	// Continue to execute timers until there are no more before the new time.
 	for {
-		if timer, tick := m.runNextTimer(t); timer != nil {
+		if timer, tick := m.getNextTimer(t); timer != nil {
 			timer.execute(tick)
 			runtime.Gosched()
 		} else {
@@ -90,17 +91,17 @@ func (m *Mock) Set(t time.Time) {
 
 	// Ensure that we end with the new time.
 	m.mu.Lock()
-	if t.After(m.now) {
+	if !m.stopped && t.After(m.now) {
 		m.now = t
 	}
 	m.mu.Unlock()
 	runtime.Gosched()
 }
 
-// runNextTimer returns the next timer in chronological order and moves the
+// getNextTimer returns the next timer in chronological order and moves the
 // current time to the timer's next tick time. The next time is not executed if
 // its next time if after the max time. Returns true if a timer is executed.
-func (m *Mock) runNextTimer(until time.Time) (clockTimer, time.Time) {
+func (m *Mock) getNextTimer(until time.Time) (clockTimer, time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -178,7 +179,11 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 		d:    d,
 		next: m.now.Add(d),
 	}
-	heap.Push(&m.timers, t)
+	if !m.stopped {
+		heap.Push(&m.timers, t)
+	} else {
+		ch <- m.now
+	}
 	return t
 }
 
@@ -201,7 +206,11 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		next:    m.now.Add(d),
 		stopped: false,
 	}
-	heap.Push(&m.timers, t)
+	if !m.stopped {
+		heap.Push(&m.timers, t)
+	} else {
+		ch <- m.now
+	}
 	return t
 }
 
@@ -217,6 +226,21 @@ func (m *Mock) removeClockTimerLocked(t clockTimer) {
 			heap.Remove(&m.timers, i)
 			return
 		}
+	}
+}
+
+// Stop
+func (m *Mock) Stop() {
+	var timers []clockTimer
+	var stopTime time.Time
+	m.mu.Lock()
+	m.stopped = true
+	m.timers, timers = timers, m.timers
+	stopTime = m.now
+	m.mu.Unlock()
+
+	for _, timer := range timers {
+		timer.execute(stopTime)
 	}
 }
 
@@ -260,7 +284,7 @@ type Timer struct {
 	realTimer *time.Timer
 }
 
-// Stop turns off the ticker.
+// Stop turns off the timer.
 func (t *Timer) Stop() bool {
 	if t.realTimer != nil {
 		return t.realTimer.Stop()
