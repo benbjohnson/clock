@@ -4,6 +4,7 @@ package clock
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -130,27 +131,30 @@ func TestClock_Timer_Reset(t *testing.T) {
 
 // Ensure that the mock's After channel sends at the correct time.
 func TestMock_After(t *testing.T) {
-	t.Skip("TODO: fix test")
 	var ok int32
+	var wg sync.WaitGroup
 
 	mock := NewMock()
 	clock := mock.Clock()
 
+	wg.Add(1)
+
+	now := mock.Now()
+
 	// Create a channel to execute after 10 mock seconds.
 	ch := clock.After(10 * time.Second)
-	go func(ch <-chan time.Time) {
-		<-ch
+	go func() {
+		tm := <-ch
+		if !tm.Equal(now.Add(10 * time.Second)) {
+			t.Fatalf("got wrong time")
+		}
 		atomic.StoreInt32(&ok, 1)
-	}(ch)
-
-	// Move clock forward to just before the time.
-	mock.Add(9 * time.Second)
-	if atomic.LoadInt32(&ok) == 1 {
-		t.Fatal("too early")
-	}
+		wg.Done()
+	}()
 
 	// Move clock forward to the after channel's time.
-	mock.Add(1 * time.Second)
+	mock.Add(10 * time.Second)
+	wg.Wait()
 	if atomic.LoadInt32(&ok) == 0 {
 		t.Fatal("too late")
 	}
@@ -281,28 +285,46 @@ func TestMock_Since(t *testing.T) {
 
 // Ensure that the mock can sleep for the correct time.
 func TestMock_Sleep(t *testing.T) {
-	t.Skip("TODO: fix test")
 	var ok int32
+	var wg sync.WaitGroup
+
 	mock := NewMock()
 	clock := mock.Clock()
+	wg.Add(1)
 
-	// Create a channel to execute after 10 mock seconds.
+	sync := make(chan struct{})
+	// This hooks gets into the internal timer that mock Sleep uses
+	mock.SetHook(HookBeforeTimer, func(t time.Time) {
+		sync <- struct{}{}
+	})
+
 	go func() {
+		now := clock.Now()
 		clock.Sleep(10 * time.Second)
 		atomic.StoreInt32(&ok, 1)
+		if clock.Now().Before(now.Add(10 * time.Second)) {
+			t.Fatal("too early")
+		}
+		wg.Done()
 	}()
 
-	// Move clock forward to just before the sleep duration.
-	mock.Add(9 * time.Second)
-	if atomic.LoadInt32(&ok) == 1 {
-		t.Fatal("too early")
-	}
+	// Wait for us to hit that sleep
+	<-sync
 
+	for i := 0; i < 9; i++ {
+		mock.Add(time.Second)
+		runtime.Gosched()
+		if atomic.LoadInt32(&ok) != 0 {
+			t.Fatal("too early")
+		}
+	}
 	// Move clock forward to the after the sleep duration.
-	mock.Add(1 * time.Second)
+	mock.Add(time.Second)
+	wg.Wait()
 	if atomic.LoadInt32(&ok) == 0 {
 		t.Fatal("too late")
 	}
+
 }
 
 // Ensure that the mock's Tick channel sends at the correct time.
@@ -354,25 +376,25 @@ func TestMock_Tick(t *testing.T) {
 
 // Ensure that the mock's Ticker channel sends at the correct time.
 func TestMock_Ticker(t *testing.T) {
-	t.Skip()
-	var n int32
+	var wg sync.WaitGroup
+
 	mock := NewMock()
 	clock := mock.Clock()
 
+	wg.Add(10)
+	ticker := clock.Ticker(time.Microsecond)
+
 	// Create a channel to increment every microsecond.
 	go func() {
-		ticker := clock.Ticker(1 * time.Microsecond)
 		for {
 			<-ticker.C
-			atomic.AddInt32(&n, 1)
+			wg.Done()
 		}
 	}()
 
 	// Move clock forward.
 	mock.Add(10 * time.Microsecond)
-	if atomic.LoadInt32(&n) != 10 {
-		t.Fatalf("unexpected: %d", n)
-	}
+	wg.Wait()
 }
 
 // Ensure that the mock's Ticker channel won't block if not read from.
@@ -386,66 +408,65 @@ func TestMock_Ticker_Overflow(t *testing.T) {
 
 // Ensure that the mock's Ticker can be stopped.
 func TestMock_Ticker_Stop(t *testing.T) {
-	t.Skip("this test is still racy...")
-	var n int32
 	mock := NewMock()
 	clock := mock.Clock()
 
 	// Create a channel to increment every second.
 	ticker := clock.Ticker(1 * time.Second)
-	go func() {
-		for {
-			<-ticker.C
-			atomic.AddInt32(&n, 1)
-		}
-	}()
 
 	// Move clock forward.
 	mock.Add(5 * time.Second)
-	if tn := atomic.LoadInt32(&n); tn != 5 {
-		t.Fatalf("expected 5, got: %d", tn)
-	}
 
 	ticker.Stop()
 
+	//drain the channel, there must be 5 updates
+	var i int
+	for len(ticker.C) > 0 {
+		<-ticker.C
+		i++
+	}
+	if i != 5 {
+		t.Fatalf("Expected 5 updates got %d\n", i)
+	}
+
+	// wait for some time in real time for things not to happen
+	tmrC := time.After(1 * time.Second)
 	// Move clock forward again.
 	mock.Add(5 * time.Second)
-	if tn := atomic.LoadInt32(&n); tn != 5 {
-		t.Fatalf("still expected 5, got: %d", tn)
+
+	select {
+	case <-ticker.C:
+		t.Fatalf("unexpected tick")
+	case <-tmrC:
 	}
 }
 
 // Ensure that multiple tickers can be used together.
 func TestMock_Ticker_Multi(t *testing.T) {
-	t.Skip("TODO: fix test")
+	var wg sync.WaitGroup
 
-	var n int32
 	mock := NewMock()
 	clock := mock.Clock()
-	sync := make(chan struct{}, 20)
-	go func() {
-		a := clock.Ticker(1 * time.Microsecond)
-		b := clock.Ticker(3 * time.Microsecond)
 
+	wg.Add(13)
+	ticker1 := clock.Ticker(time.Microsecond)
+	ticker3 := clock.Ticker(3 * time.Microsecond)
+
+	// Create a channel to increment every microsecond.
+	go func() {
 		for {
 			select {
-			case <-a.C:
-				atomic.AddInt32(&n, 1)
-			case <-b.C:
-				atomic.AddInt32(&n, 100)
+			case <-ticker1.C:
+				wg.Done()
+			case <-ticker3.C:
+				wg.Done()
 			}
-			sync <- struct{}{}
 		}
 	}()
 
 	// Move clock forward.
 	mock.Add(10 * time.Microsecond)
-	for i := 0; i < 13; i++ {
-		<-sync
-	}
-	if atomic.LoadInt32(&n) != 310 {
-		t.Fatalf("unexpected: %d", n)
-	}
+	wg.Wait()
 }
 
 func TestHooks(t *testing.T) {
