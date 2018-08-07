@@ -57,15 +57,41 @@ func (c *clock) Timer(d time.Duration) *Timer {
 // Mock represents a mock clock that only moves forward programmically.
 // It can be preferable to a real-time clock when testing time-based functionality.
 type Mock struct {
-	mu     sync.Mutex
-	now    time.Time   // current time
-	timers clockTimers // tickers & timers
+	mu      sync.Mutex
+	now     time.Time   // current time
+	timers  clockTimers // tickers & timers
+	gosched func()
 }
 
-// NewMock returns an instance of a mock clock.
-// The current time of the mock clock on initialization is the Unix epoch.
+type MockOpt struct {
+	// Gosched is a function which is called to schedule other (app-specific)
+	// goroutines. Default implementation just sleeps for 1 millisecond. It is
+	// often not acceptable because it slows down tests significantly and is also
+	// potentialy fragile.
+	Gosched func()
+}
+
+// NewMock returns an instance of a mock clock with the default options.
+// See also NewMockOpt
 func NewMock() *Mock {
-	return &Mock{now: time.Unix(0, 0)}
+	return NewMockOpt(MockOpt{})
+}
+
+// NewMockOpt returns an instance of a mock clock.
+// The current time of the mock clock on initialization is the Unix epoch.
+// See MockOpt for description of available options.
+func NewMockOpt(opt MockOpt) *Mock {
+	mock := &Mock{
+		now:     time.Unix(0, 0),
+		gosched: opt.Gosched,
+	}
+	if mock.gosched == nil {
+		mock.gosched = func() {
+			time.Sleep(1 * time.Millisecond)
+		}
+	}
+
+	return mock
 }
 
 // Add moves the current time of the mock clock forward by the duration.
@@ -87,7 +113,7 @@ func (m *Mock) Add(d time.Duration) {
 	m.mu.Unlock()
 
 	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
+	m.gosched()
 }
 
 // Set sets the current time of the mock clock to a specific one.
@@ -106,7 +132,7 @@ func (m *Mock) Set(t time.Time) {
 	m.mu.Unlock()
 
 	// Give a small buffer to make sure the other goroutines get handled.
-	gosched()
+	m.gosched()
 }
 
 // runNextTimer executes the next timer in chronological order and moves the
@@ -289,7 +315,7 @@ func (t *internalTimer) Tick(now time.Time) {
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
 	t.stopped = true
-	gosched()
+	t.mock.gosched()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
@@ -320,8 +346,5 @@ func (t *internalTicker) Tick(now time.Time) {
 	default:
 	}
 	t.next = now.Add(t.d)
-	gosched()
+	t.mock.gosched()
 }
-
-// Sleep momentarily so that other goroutines can process.
-func gosched() { time.Sleep(1 * time.Millisecond) }
