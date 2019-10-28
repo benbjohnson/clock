@@ -224,6 +224,12 @@ func (m *Mock) removeClockTimer(t clockTimer) {
 	sort.Sort(m.timers)
 }
 
+func (m *Mock) appendClockTimer(t clockTimer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.timers = append(m.timers, t)
+}
+
 // clockTimer represents an object with an associated start time.
 type clockTimer interface {
 	Next() time.Time
@@ -246,6 +252,7 @@ type Timer struct {
 	next    time.Time   // next tick time
 	mock    *Mock       // mock clock, if set
 	fn      func()      // AfterFunc function, if set
+	mu      sync.Mutex  // lock around stopped
 	stopped bool        // True if stopped, false if running
 }
 
@@ -255,6 +262,8 @@ func (t *Timer) Stop() bool {
 		return t.timer.Stop()
 	}
 
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	registered := !t.stopped
 	t.mock.removeClockTimer((*internalTimer)(t))
 	t.stopped = true
@@ -267,12 +276,12 @@ func (t *Timer) Reset(d time.Duration) bool {
 		return t.timer.Reset(d)
 	}
 
-	t.next = t.mock.now.Add(d)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.next = t.mock.Now().Add(d)
 	registered := !t.stopped
 	if t.stopped {
-		t.mock.mu.Lock()
-		t.mock.timers = append(t.mock.timers, (*internalTimer)(t))
-		t.mock.mu.Unlock()
+		t.mock.appendClockTimer((*internalTimer)(t))
 	}
 	t.stopped = false
 	return registered
@@ -280,7 +289,11 @@ func (t *Timer) Reset(d time.Duration) bool {
 
 type internalTimer Timer
 
-func (t *internalTimer) Next() time.Time { return t.next }
+func (t *internalTimer) Next() time.Time {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.next
+}
 func (t *internalTimer) Tick(now time.Time) {
 	if t.fn != nil {
 		t.fn()
@@ -288,6 +301,8 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.stopped = true
 	gosched()
 }
