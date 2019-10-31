@@ -1,12 +1,15 @@
-clock [![Build Status](https://drone.io/github.com/benbjohnson/clock/status.png)](https://drone.io/github.com/benbjohnson/clock/latest) [![Coverage Status](https://coveralls.io/repos/benbjohnson/clock/badge.png?branch=master)](https://coveralls.io/r/benbjohnson/clock?branch=master) [![GoDoc](https://godoc.org/github.com/benbjohnson/clock?status.png)](https://godoc.org/github.com/benbjohnson/clock) ![Project status](http://img.shields.io/status/experimental.png?color=red)
-=====
+# clock [![Build Status](https://drone.io/github.com/benbjohnson/clock/status.png)](https://drone.io/github.com/benbjohnson/clock/latest) [![Coverage Status](https://coveralls.io/repos/benbjohnson/clock/badge.png?branch=master)](https://coveralls.io/r/benbjohnson/clock?branch=master) [![GoDoc](https://godoc.org/github.com/benbjohnson/clock?status.png)](https://godoc.org/github.com/benbjohnson/clock) ![Project status](http://img.shields.io/status/experimental.png?color=red)
 
-Clock is a small library for mocking time in Go. It provides an interface
-around the standard library's [`time`][time] package so that the application
-can use the realtime clock while tests can use the mock clock.
+This is not an official Google product.
+
+Clock is a small library for mocking time in Go. It provides an interface around
+the standard library's [`time`][time] package so that the application can use
+the realtime clock while tests can use the mock clock.
+
+This fork from https://github.com/benbjohnson/clock aims to add reliability and
+concurrency fixes.
 
 [time]: http://golang.org/pkg/time/
-
 
 ## Usage
 
@@ -16,10 +19,10 @@ Your application can maintain a `Clock` variable that will allow realtime and
 mock clocks to be interchangable. For example, if you had an `Application` type:
 
 ```go
-import "github.com/benbjohnson/clock"
+import "github.com/inosvaruag/clock"
 
 type Application struct {
-	Clock clock.Clock
+    Clock clock.Clock
 }
 ```
 
@@ -34,29 +37,27 @@ app.Clock = clock.New()
 Then all timers and time-related functionality should be performed from the
 `Clock` variable.
 
-
 ### Mocking time
 
 In your tests, you will want to use a `Mock` clock:
 
 ```go
 import (
-	"testing"
+    "testing"
 
-	"github.com/benbjohnson/clock"
+    "github.com/benbjohnson/clock"
 )
 
 func TestApplication_DoSomething(t *testing.T) {
-	mock := clock.NewMock()
-	app := Application{Clock: mock}
-	...
+    mock := clock.NewMock()
+    app := Application{Clock: mock}
+    ...
 }
 ```
 
 Now that you've initialized your application to use the mock clock, you can
 adjust the time programmatically. The mock clock always starts from the Unix
 epoch (midnight, Jan 1, 1970 UTC).
-
 
 ### Controlling time
 
@@ -100,5 +101,3 @@ mock.Add(10 * time.Second)
 // This prints 10.
 fmt.Println(count)
 ```
-
-
