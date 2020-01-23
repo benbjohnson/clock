@@ -281,8 +281,13 @@ func (t *Timer) Stop() bool {
 		return t.timer.Stop()
 	}
 
+	t.mock.mu.Lock()
 	registered := !t.stopped
+	t.mock.mu.Unlock()
+
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
 	t.stopped = true
 	return registered
 }
@@ -294,12 +299,14 @@ func (t *Timer) Reset(d time.Duration) bool {
 	}
 
 	t.next = t.mock.now.Add(d)
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+
 	registered := !t.stopped
 	if t.stopped {
-		t.mock.mu.Lock()
 		t.mock.timers = append(t.mock.timers, (*internalTimer)(t))
-		t.mock.mu.Unlock()
 	}
+
 	t.stopped = false
 	return registered
 }
@@ -314,6 +321,9 @@ func (t *internalTimer) Tick(now time.Time) {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+
 	t.stopped = true
 	t.mock.gosched()
 }
