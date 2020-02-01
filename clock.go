@@ -346,3 +346,8 @@ func (t *internalTicker) Tick(now time.Time) {
 
 // Sleep momentarily so that other goroutines can process.
 func gosched() { time.Sleep(1 * time.Millisecond) }
+
+var (
+	// type checking
+	_ Clock = &Mock{}
+)
