@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -20,6 +21,8 @@ type Clock interface {
 	Tick(d time.Duration) <-chan time.Time
 	Ticker(d time.Duration) *Ticker
 	Timer(d time.Duration) *Timer
+	WithDeadline(parent context.Context, d time.Time) (context.Context, context.CancelFunc)
+	WithTimeout(parent context.Context, t time.Duration) (context.Context, context.CancelFunc)
 }
 
 // New returns an instance of a real-time clock.
@@ -52,6 +55,14 @@ func (c *clock) Ticker(d time.Duration) *Ticker {
 func (c *clock) Timer(d time.Duration) *Timer {
 	t := time.NewTimer(d)
 	return &Timer{C: t.C, timer: t}
+}
+
+func (c *clock) WithDeadline(parent context.Context, d time.Time) (context.Context, context.CancelFunc) {
+	return context.WithDeadline(parent, d)
+}
+
+func (c *clock) WithTimeout(parent context.Context, t time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, t)
 }
 
 // Mock represents a mock clock that only moves forward programmically.
