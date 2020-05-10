@@ -13,7 +13,7 @@ can use the realtime clock while tests can use the mock clock.
 ### Realtime Clock
 
 Your application can maintain a `Clock` variable that will allow realtime and
-mock clocks to be interchangable. For example, if you had an `Application` type:
+mock clocks to be interchangeable. For example, if you had an `Application` type:
 
 ```go
 import "github.com/benbjohnson/clock"
@@ -55,7 +55,7 @@ func TestApplication_DoSomething(t *testing.T) {
 
 Now that you've initialized your application to use the mock clock, you can
 adjust the time programmatically. The mock clock always starts from the Unix
-epoch (midnight, Jan 1, 1970 UTC).
+epoch (midnight UTC on Jan 1, 1970).
 
 
 ### Controlling time
@@ -94,7 +94,7 @@ go func() {
 }()
 runtime.Gosched()
 
-// Move the clock forward 10 second.
+// Move the clock forward 10 seconds.
 mock.Add(10 * time.Second)
 
 // This prints 10.
