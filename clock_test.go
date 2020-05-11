@@ -334,7 +334,7 @@ func TestMock_Sleep(t *testing.T) {
 		t.Fatal("too early")
 	}
 
-	// Move clock forward to the after the sleep duration.
+	// Move clock forward to after the sleep duration.
 	clock.Add(1 * time.Second)
 	if atomic.LoadInt32(&ok) == 0 {
 		t.Fatal("too late")
