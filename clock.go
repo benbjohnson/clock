@@ -272,8 +272,8 @@ func (t *Timer) Reset(d time.Duration) bool {
 		return t.timer.Reset(d)
 	}
 
-	t.next = t.mock.now.Add(d)
 	t.mock.mu.Lock()
+	t.next = t.mock.now.Add(d)
 	defer t.mock.mu.Unlock()
 
 	registered := !t.stopped
