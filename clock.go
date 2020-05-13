@@ -296,9 +296,8 @@ func (t *internalTimer) Tick(now time.Time) {
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
 	t.mock.mu.Lock()
-	defer t.mock.mu.Unlock()
-
 	t.stopped = true
+	t.mock.mu.Unlock()
 	gosched()
 }
 
