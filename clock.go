@@ -272,8 +272,8 @@ func (t *Timer) Reset(d time.Duration) bool {
 		return t.timer.Reset(d)
 	}
 
-	t.next = t.mock.now.Add(d)
 	t.mock.mu.Lock()
+	t.next = t.mock.now.Add(d)
 	defer t.mock.mu.Unlock()
 
 	registered := !t.stopped
@@ -296,9 +296,8 @@ func (t *internalTimer) Tick(now time.Time) {
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
 	t.mock.mu.Lock()
-	defer t.mock.mu.Unlock()
-
 	t.stopped = true
+	t.mock.mu.Unlock()
 	gosched()
 }
 

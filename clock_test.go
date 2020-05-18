@@ -211,6 +211,30 @@ func TestClock_Timer_Reset(t *testing.T) {
 	}
 }
 
+// Ensure reset can be called immediately after reading channel
+func TestClock_Timer_Reset_Unlock(t *testing.T) {
+	clock := NewMock()
+	timer := clock.Timer(1 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		select {
+		case <-timer.C:
+			timer.Reset(1 * time.Second)
+		}
+
+		select {
+		case <-timer.C:
+		}
+	}()
+
+	clock.Add(2 * time.Second)
+	wg.Wait()
+}
+
 // Ensure that the mock's After channel sends at the correct time.
 func TestMock_After(t *testing.T) {
 	var ok int32
