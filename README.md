@@ -80,7 +80,7 @@ mock.Now().UTC() // 1970-01-01 02:00:00 +0000 UTC
 Timers and Tickers are also controlled by this same mock clock. They will only
 execute when the clock is moved forward:
 
-```
+```go
 mock := clock.NewMock()
 count := 0
 
