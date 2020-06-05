@@ -211,8 +211,6 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 }
 
 func (m *Mock) removeClockTimer(t clockTimer) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	for i, timer := range m.timers {
 		if timer == t {
 			copy(m.timers[i:], m.timers[i+1:])
@@ -257,12 +255,9 @@ func (t *Timer) Stop() bool {
 
 	t.mock.mu.Lock()
 	registered := !t.stopped
-	t.mock.mu.Unlock()
-
 	t.mock.removeClockTimer((*internalTimer)(t))
-	t.mock.mu.Lock()
-	defer t.mock.mu.Unlock()
 	t.stopped = true
+	t.mock.mu.Unlock()
 	return registered
 }
 
@@ -289,13 +284,13 @@ type internalTimer Timer
 
 func (t *internalTimer) Next() time.Time { return t.next }
 func (t *internalTimer) Tick(now time.Time) {
+	t.mock.mu.Lock()
 	if t.fn != nil {
 		t.fn()
 	} else {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
-	t.mock.mu.Lock()
 	t.stopped = true
 	t.mock.mu.Unlock()
 	gosched()
@@ -316,7 +311,9 @@ func (t *Ticker) Stop() {
 	if t.ticker != nil {
 		t.ticker.Stop()
 	} else {
+		t.mock.mu.Lock()
 		t.mock.removeClockTimer((*internalTicker)(t))
+		t.mock.mu.Unlock()
 	}
 }
 
