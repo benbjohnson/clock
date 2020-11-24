@@ -124,13 +124,6 @@ func TestClock_Ticker(t *testing.T) {
 
 // Ensure that the clock's ticker can stop correctly.
 func TestClock_Ticker_Stp(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	gosched()
-
 	ticker := New().Ticker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Stop()
@@ -139,6 +132,25 @@ func TestClock_Ticker_Stp(t *testing.T) {
 		t.Fatal("unexpected send")
 	case <-time.After(30 * time.Millisecond):
 	}
+}
+
+// Ensure that the clock's ticker can reset correctly.
+func TestClock_Ticker_Rst(t *testing.T) {
+	var ok bool
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		ok = true
+	}()
+	gosched()
+
+	ticker := New().Ticker(20 * time.Millisecond)
+	<-ticker.C
+	ticker.Reset(5 * time.Millisecond)
+	<-ticker.C
+	if ok {
+		t.Fatal("too late")
+	}
+	ticker.Stop()
 }
 
 // Ensure that the clock's timer waits correctly.
@@ -167,12 +179,6 @@ func TestClock_Timer(t *testing.T) {
 
 // Ensure that the clock's timer can be stopped.
 func TestClock_Timer_Stop(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-
 	timer := New().Timer(20 * time.Millisecond)
 	if !timer.Stop() {
 		t.Fatal("timer not running")
