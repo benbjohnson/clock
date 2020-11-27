@@ -86,7 +86,7 @@ count := 0
 
 // Kick off a timer to increment every 1 mock second.
 go func() {
-    ticker := clock.Ticker(1 * time.Second)
+    ticker := mock.Ticker(1 * time.Second)
     for {
         <-ticker.C
         count++
@@ -100,5 +100,3 @@ mock.Add(10 * time.Second)
 // This prints 10.
 fmt.Println(count)
 ```
-
-
