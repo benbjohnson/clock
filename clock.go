@@ -286,7 +286,9 @@ func (t *internalTimer) Next() time.Time { return t.next }
 func (t *internalTimer) Tick(now time.Time) {
 	t.mock.mu.Lock()
 	if t.fn != nil {
+		t.mock.mu.Unlock()
 		t.fn()
+		t.mock.mu.Lock()
 	} else {
 		t.c <- now
 	}
