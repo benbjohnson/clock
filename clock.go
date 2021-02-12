@@ -321,7 +321,14 @@ func (t *Ticker) Stop() {
 func (t *Ticker) Reset(dur time.Duration) {
 	if t.ticker != nil {
 		t.ticker.Reset(dur)
+		return
 	}
+
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+
+	t.d = dur
+	t.next = t.mock.now.Add(dur)
 }
 
 type internalTicker Ticker
