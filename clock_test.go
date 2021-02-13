@@ -465,6 +465,45 @@ func TestMock_Ticker_Stop(t *testing.T) {
 	}
 }
 
+func TestMock_Ticker_Reset(t *testing.T) {
+	var n int32
+	clock := NewMock()
+
+	ticker := clock.Ticker(5 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			<-ticker.C
+			atomic.AddInt32(&n, 1)
+		}
+	}()
+	gosched()
+
+	// Move clock forward.
+	clock.Add(10 * time.Second)
+	if atomic.LoadInt32(&n) != 2 {
+		t.Fatalf("expected 2, got: %d", n)
+	}
+
+	clock.Add(4 * time.Second)
+	ticker.Reset(5 * time.Second)
+
+	// Advance the remaining second
+	clock.Add(1 * time.Second)
+
+	if atomic.LoadInt32(&n) != 2 {
+		t.Fatalf("expected 2, got: %d", n)
+	}
+
+	// Advance the remaining 4 seconds from the previous tick
+	clock.Add(4 * time.Second)
+
+	if atomic.LoadInt32(&n) != 3 {
+		t.Fatalf("expected 3, got: %d", n)
+	}
+}
+
 // Ensure that multiple tickers can be used together.
 func TestMock_Ticker_Multi(t *testing.T) {
 	var n int32
