@@ -60,6 +60,23 @@ func (t *Timer) Reset(d time.Duration) bool {
 	return registered
 }
 
+// Confirm confirms that a timer event has been processed - no op for system clock, but allows synchronization of the mock
+func (t *Timer) Confirm() {
+	if t.timer != nil {
+		return
+	}
+
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+	if t.mock.expectingConfirms > 0 {
+		t.mock.confirms.Done() // signal that timer has been confirmed
+	} else if t.mock.tForFail != nil {
+		t.mock.tForFail.Errorf("Unexpected timer confirmation")
+	} else {
+		t.mock.recentConfirms++
+	}
+}
+
 // Ticker holds a channel that receives "ticks" at regular intervals.
 type Ticker struct {
 	C      <-chan time.Time
@@ -93,4 +110,21 @@ func (t *Ticker) Reset(dur time.Duration) {
 
 	t.d = dur
 	t.next = t.mock.now.Add(dur)
+}
+
+// Confirm confirms that a ticker event has been processed - no op for system clock, but allows synchronization of the mock
+func (t *Ticker) Confirm() {
+	if t.ticker != nil {
+		return
+	}
+
+	t.mock.mu.Lock()
+	defer t.mock.mu.Unlock()
+	if t.mock.expectingConfirms > 0 {
+		t.mock.confirms.Done() // signal that timer has been confirmed
+	} else if t.mock.tForFail != nil {
+		t.mock.tForFail.Errorf("Unexpected ticker confirmation")
+	} else {
+		t.mock.recentConfirms++
+	}
 }
