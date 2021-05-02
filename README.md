@@ -59,6 +59,34 @@ Now that you've initialized your application to use the mock clock, you can
 adjust the time programmatically. The mock clock always starts from the Unix
 epoch (midnight UTC on Jan 1, 1970).
 
+### Synchronization
+
+One tricky part of mocking time is that generally, the events you are trying to control are
+in a separate gothread. This creates a couple of common race conditions:
+ * You need to be confident another thread has called NewTicker or NewTimer or
+   Sleep _before_ you advance the clock. Otherwise their wait time will start
+   _after_ you're done moving the clock, so it'll never be satisfied
+ * You need to be confident the thread that handles the timer is _done_ doing its thing
+   so you can then do asserts about what the result was.
+
+The mock provides some hooks to make this easier to deal with.
+
+####Expect
+
+The mock provides the ability to "expect" a specific number of timer starts or a specific number 
+of processed time events. You prepare this by calling Expect* or setting an expect option _before_ 
+the other threads will be doing this. Then, when you need to be sure those threads are done, you can
+call WaitFor* which will block until the expected count is reached.
+
+In order to facilitate this for processed events, the timer objects returned by this package have an
+extra "Confirm" method. Your code must call this when finished processing a timer event. When using
+the system clock, Confirm is a no-op. But when using the mock, it will call Done on the waitgroup so
+that your blocked Wait will eventually return.
+
+Optionally, you can toggle the mock to fail a test if an unexpected start or event happens using the
+FailOnUnexpectedUpcomingEvent option. Once this is set, any new timers or new confirms that aren't accounted
+for by a call to Expect will fail a test. This behavior continues on all subsequent calls unless you 
+expressly turn it back off using IgnoreUnexpectedUpcomingEvent.
 
 ### Controlling time
 
@@ -83,7 +111,7 @@ Timers and Tickers are also controlled by this same mock clock. They will only
 execute when the clock is moved forward:
 
 ```go
-mock := clock.NewMock()
+mock := clock.NewMock(clock.ExpectStartsBeforeNext(1), clock.FailOnUnexpectedUpcomingEvent(t))
 count := 0
 
 // Kick off a timer to increment every 1 mock second.
@@ -92,13 +120,23 @@ go func() {
     for {
         <-ticker.C
         count++
+		// this tells the mock that the timer event has been handled
+		ticker.Confirm()
     }
 }()
-runtime.Gosched()
 
-// Move the clock forward 10 seconds.
-mock.Add(10 * time.Second)
+// Wait for all expected starts, then move the clock forward 10 seconds.
+// Expect a confirm
+mock.Add(10 * time.Second, clock.WaitForStarts, clock.ExpectConfirmsBeforeNext(2))
 
+// this will ensure this thread waits until the timer thread has defintely run and handled the timer event
+mock.WaitForConfirms()
 // This prints 10.
+fmt.Println(count)
+
+mock.Add(20 * time.Second, clock.WaitForConfirms, clock.ExpectConfirmsBeforeNext(2))
+
+mock.WaitForConfirms()
+// This prints 30.
 fmt.Println(count)
 ```
