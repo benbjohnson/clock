@@ -14,6 +14,7 @@ type Mock struct {
 	totalTimers int
 	timers      clockTimers // tickers & timers
 	newTimers   sync.WaitGroup
+	expecting   bool
 }
 
 // NewMock returns an instance of a mock clock.
@@ -25,6 +26,7 @@ func NewMock() *Mock {
 // Expect informs the mock how many timers will be created
 func (m *Mock) Expect(timerCount int) {
 	m.mu.Lock()
+	m.expecting = true
 	m.newTimers.Add(timerCount - m.totalTimers)
 	m.mu.Unlock()
 }
@@ -32,6 +34,9 @@ func (m *Mock) Expect(timerCount int) {
 // WaitForStart will block until all expected timers have started
 func (m *Mock) WaitForStart() {
 	m.newTimers.Wait()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.expecting = false
 }
 
 // Add moves the current time of the mock clock forward by the specified duration.
@@ -158,7 +163,9 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 	}
 	m.timers = append(m.timers, (*internalTicker)(t))
 	m.totalTimers++
-	m.newTimers.Done() // signal that we started a timer
+	if m.expecting {
+		m.newTimers.Done() // signal that we started a timer
+	}
 	return t
 }
 
@@ -176,7 +183,9 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
 	m.totalTimers++
-	m.newTimers.Done() // signal that we started a timer
+	if m.expecting {
+		m.newTimers.Done() // signal that we started a timer
+	}
 	return t
 }
 
