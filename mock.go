@@ -9,15 +9,29 @@ import (
 // Mock represents a mock clock that only moves forward programmatically.
 // It can be preferable to a real-time clock when testing time-based functionality.
 type Mock struct {
-	mu     sync.Mutex
-	now    time.Time   // current time
-	timers clockTimers // tickers & timers
+	mu          sync.Mutex
+	now         time.Time // current time
+	totalTimers int
+	timers      clockTimers // tickers & timers
+	newTimers   sync.WaitGroup
 }
 
 // NewMock returns an instance of a mock clock.
 // The current time of the mock clock on initialization is the Unix epoch.
 func NewMock() *Mock {
 	return &Mock{now: time.Unix(0, 0)}
+}
+
+// Expect informs the mock how many timers will be created
+func (m *Mock) Expect(timerCount int) {
+	m.mu.Lock()
+	m.newTimers.Add(timerCount - m.totalTimers)
+	m.mu.Unlock()
+}
+
+// WaitForStart will block until all expected timers have started
+func (m *Mock) WaitForStart() {
+	m.newTimers.Wait()
 }
 
 // Add moves the current time of the mock clock forward by the specified duration.
@@ -143,6 +157,8 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 		next: m.now.Add(d),
 	}
 	m.timers = append(m.timers, (*internalTicker)(t))
+	m.totalTimers++
+	m.newTimers.Done() // signal that we started a timer
 	return t
 }
 
@@ -159,6 +175,8 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		stopped: false,
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
+	m.totalTimers++
+	m.newTimers.Done() // signal that we started a timer
 	return t
 }
 
