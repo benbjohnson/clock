@@ -318,8 +318,7 @@ func ExampleMock_After() {
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
 
 	// Move the clock forward 5 seconds to the tick time and check the value.
-	clock.Add(5*time.Second, ExpectUpcomingConfirms(1))
-	clock.WaitForConfirm()
+	clock.Add(5*time.Second, ExpectUpcomingConfirms(1), WaitAfter)
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
 
 	// Output:
@@ -344,9 +343,8 @@ func ExampleMock_AfterFunc() {
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
 
 	// Move the clock forward 10 seconds and print the new value.
-	clock.Add(10*time.Second, ExpectUpcomingConfirms(1))
+	clock.Add(10*time.Second, ExpectUpcomingConfirms(1), WaitAfter)
 
-	clock.WaitForConfirm()
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
 
 	// Output:
@@ -409,7 +407,7 @@ func ExampleMock_Ticker() {
 
 func ExampleMock_Timer() {
 	// Create a new mock clock.
-	clock := NewMock(ExpectUpcomingStarts(1), ExpectUpcomingConfirms(1))
+	clock := NewMock(ExpectUpcomingStarts(1))
 	count := 0
 
 	// Increment count after a mock second.
@@ -419,10 +417,9 @@ func ExampleMock_Timer() {
 		count++
 		clock.Confirm()
 	}()
-	clock.WaitForStart()
 
 	// Move the clock forward 10 seconds and print the new value.
-	clock.Add(10 * time.Second)
+	clock.Add(10*time.Second, WaitBefore, ExpectUpcomingConfirms(10), WaitAfter)
 	fmt.Printf("Count is %d after 10 seconds\n", count)
 
 	// Output:
