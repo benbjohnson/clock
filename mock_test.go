@@ -178,7 +178,7 @@ func TestMock_Ticker(t *testing.T) {
 
 	// Create a channel to increment every microsecond.
 	go func() {
-		ticker := clock.Ticker(1 * time.Microsecond)
+		ticker := clock.NewTicker(1 * time.Microsecond)
 		for {
 			<-ticker.C
 			atomic.AddInt32(&n, 1)
@@ -196,7 +196,7 @@ func TestMock_Ticker(t *testing.T) {
 // Ensure that the mock's Ticker channel won't block if not read from.
 func TestMock_Ticker_Overflow(t *testing.T) {
 	clock := NewMock()
-	ticker := clock.Ticker(1 * time.Microsecond)
+	ticker := clock.NewTicker(1 * time.Microsecond)
 	clock.Add(10 * time.Microsecond)
 	ticker.Stop()
 }
@@ -207,7 +207,7 @@ func TestMock_Ticker_Stop(t *testing.T) {
 	clock := NewMock(ExpectUpcomingStarts(1), FailOnUnexpectedUpcomingEvent(t))
 
 	// Create a channel to increment every second.
-	ticker := clock.Ticker(1 * time.Second)
+	ticker := clock.NewTicker(1 * time.Second)
 	go func() {
 		for {
 			<-ticker.C
@@ -235,7 +235,7 @@ func TestMock_Ticker_Reset(t *testing.T) {
 	var n int32
 	clock := NewMock(ExpectUpcomingStarts(1), FailOnUnexpectedUpcomingEvent(t))
 
-	ticker := clock.Ticker(5 * time.Second)
+	ticker := clock.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -276,8 +276,8 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	clock := NewMock(ExpectUpcomingStarts(2), FailOnUnexpectedUpcomingEvent(t))
 
 	go func() {
-		a := clock.Ticker(1 * time.Microsecond)
-		b := clock.Ticker(3 * time.Microsecond)
+		a := clock.NewTicker(1 * time.Microsecond)
+		b := clock.NewTicker(3 * time.Microsecond)
 
 		for {
 			select {
@@ -383,7 +383,7 @@ func ExampleMock_Ticker() {
 
 	// Increment count every mock second.
 	go func() {
-		ticker := clock.Ticker(1 * time.Second)
+		ticker := clock.NewTicker(1 * time.Second)
 		for {
 			<-ticker.C
 			count++
@@ -411,7 +411,7 @@ func ExampleMock_Timer() {
 
 	// Increment count after a mock second.
 	go func() {
-		timer := clock.Timer(1 * time.Second)
+		timer := clock.NewTimer(1 * time.Second)
 		<-timer.C
 		count++
 		clock.Confirm()

@@ -233,7 +233,7 @@ func TestClock_Timer_Reset(t *testing.T) {
 // Ensure reset can be called immediately after reading channel
 func TestClock_Timer_Reset_Unlock(t *testing.T) {
 	clock := NewMock()
-	timer := clock.Timer(1 * time.Second)
+	timer := clock.NewTimer(1 * time.Second)
 
 	var wg sync.WaitGroup
 	wg.Add(1)

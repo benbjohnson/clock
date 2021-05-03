@@ -302,13 +302,13 @@ func (m *Mock) runNextTimer(max time.Time) bool {
 
 // After waits for the duration to elapse and then sends the current time on the returned channel.
 func (m *Mock) After(d time.Duration) <-chan time.Time {
-	return m.Timer(d).C
+	return m.NewTimer(d).C
 }
 
 // AfterFunc waits for the duration to elapse and then executes a function.
 // A Timer is returned that can be stopped.
 func (m *Mock) AfterFunc(d time.Duration, f func()) *Timer {
-	t := m.Timer(d)
+	t := m.NewTimer(d)
 	t.C = nil
 	t.fn = f
 	return t
@@ -335,11 +335,11 @@ func (m *Mock) Sleep(d time.Duration) {
 // Tick is a convenience function for Ticker().
 // It will return a ticker channel that cannot be stopped.
 func (m *Mock) Tick(d time.Duration) <-chan time.Time {
-	return m.Ticker(d).C
+	return m.NewTicker(d).C
 }
 
-// Ticker creates a new instance of Ticker.
-func (m *Mock) Ticker(d time.Duration) *Ticker {
+// NewTicker creates a new instance of NewTicker.
+func (m *Mock) NewTicker(d time.Duration) *Ticker {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ch := make(chan time.Time, 1)
@@ -363,8 +363,8 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 	return t
 }
 
-// Timer creates a new instance of Timer.
-func (m *Mock) Timer(d time.Duration) *Timer {
+// NewTimer creates a new instance of NewTimer.
+func (m *Mock) NewTimer(d time.Duration) *Timer {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ch := make(chan time.Time, 1)
