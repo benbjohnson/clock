@@ -123,7 +123,7 @@ func TestClock_Ticker(t *testing.T) {
 	}()
 	gosched()
 
-	ticker := New().Ticker(50 * time.Millisecond)
+	ticker := New().NewTicker(50 * time.Millisecond)
 	<-ticker.C
 	<-ticker.C
 	if !ok {
@@ -133,7 +133,7 @@ func TestClock_Ticker(t *testing.T) {
 
 // Ensure that the clock's ticker can stop correctly.
 func TestClock_Ticker_Stp(t *testing.T) {
-	ticker := New().Ticker(20 * time.Millisecond)
+	ticker := New().NewTicker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Stop()
 	select {
@@ -152,7 +152,7 @@ func TestClock_Ticker_Rst(t *testing.T) {
 	}()
 	gosched()
 
-	ticker := New().Ticker(20 * time.Millisecond)
+	ticker := New().NewTicker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Reset(5 * time.Millisecond)
 	<-ticker.C
@@ -177,7 +177,7 @@ func TestClock_Timer(t *testing.T) {
 	}()
 	gosched()
 
-	timer := New().Timer(20 * time.Millisecond)
+	timer := New().NewTimer(20 * time.Millisecond)
 	<-timer.C
 	if !ok {
 		t.Fatal("too early")
@@ -190,7 +190,7 @@ func TestClock_Timer(t *testing.T) {
 
 // Ensure that the clock's timer can be stopped.
 func TestClock_Timer_Stop(t *testing.T) {
-	timer := New().Timer(20 * time.Millisecond)
+	timer := New().NewTimer(20 * time.Millisecond)
 	if !timer.Stop() {
 		t.Fatal("timer not running")
 	}
@@ -219,7 +219,7 @@ func TestClock_Timer_Reset(t *testing.T) {
 	}()
 	gosched()
 
-	timer := New().Timer(10 * time.Millisecond)
+	timer := New().NewTimer(10 * time.Millisecond)
 	if !timer.Reset(20 * time.Millisecond) {
 		t.Fatal("timer not running")
 	}
