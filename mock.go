@@ -8,7 +8,12 @@ import (
 )
 
 var (
-	WaitForStarts                 = &WaitForStartsOption{}
+	WaitForStartsBefore           = &WaitForStartsBeforeOption{}
+	WaitForConfirmsBefore         = &WaitForConfirmsBeforeOption{}
+	WaitBefore                    = &WaitBeforeOption{}
+	WaitForStartsAfter            = &WaitForStartsAfterOption{}
+	WaitForConfirmsAfter          = &WaitForConfirmsAfterOption{}
+	WaitAfter                     = &WaitAfterOption{}
 	IgnoreUnexpectedUpcomingEvent = &IgnoreUnexpectedUpcomingEventOption{}
 	OptimisticSched               = &OptimisticSchedOption{}
 )
@@ -18,8 +23,9 @@ type Confirmable interface {
 }
 
 type Option interface {
-	PerformOptionBeforeCall(*Mock)
-	PerformOptionAfterCall(*Mock)
+	PriorEventsOption(*Mock)
+	UpcomingEventsOption(*Mock)
+	AfterClockAdvanceOption(*Mock)
 }
 
 type FailOnUnexpectedUpcomingEventOption struct {
@@ -30,68 +36,125 @@ func FailOnUnexpectedUpcomingEvent(t *testing.T) *FailOnUnexpectedUpcomingEventO
 	return &FailOnUnexpectedUpcomingEventOption{t}
 }
 
-func (o *FailOnUnexpectedUpcomingEventOption) PerformOptionBeforeCall(mock *Mock) {
-}
+func (o *FailOnUnexpectedUpcomingEventOption) PriorEventsOption(mock *Mock) {}
 
-func (o *FailOnUnexpectedUpcomingEventOption) PerformOptionAfterCall(mock *Mock) {
+func (o *FailOnUnexpectedUpcomingEventOption) UpcomingEventsOption(mock *Mock) {
 	mock.tForFail = o.t
 }
 
+func (o *FailOnUnexpectedUpcomingEventOption) AfterClockAdvanceOption(mock *Mock) {}
+
 type IgnoreUnexpectedUpcomingEventOption struct{}
 
-func (o *IgnoreUnexpectedUpcomingEventOption) PerformOptionBeforeCall(mock *Mock) {
-}
+func (o *IgnoreUnexpectedUpcomingEventOption) PriorEventsOption(mock *Mock) {}
 
-func (o *IgnoreUnexpectedUpcomingEventOption) PerformOptionAfterCall(mock *Mock) {
+func (o *IgnoreUnexpectedUpcomingEventOption) UpcomingEventsOption(mock *Mock) {
 	mock.tForFail = nil
 }
 
-type ExpectStartsBeforeNextOption struct {
+func (o *IgnoreUnexpectedUpcomingEventOption) AfterClockAdvanceOption(mock *Mock) {}
+
+type ExpectUpcomingStartsOption struct {
 	starts int
 }
 
-func ExpectStartsBeforeNext(starts int) *ExpectStartsBeforeNextOption {
-	return &ExpectStartsBeforeNextOption{starts}
+func ExpectUpcomingStarts(starts int) *ExpectUpcomingStartsOption {
+	return &ExpectUpcomingStartsOption{starts}
 }
 
-func (o *ExpectStartsBeforeNextOption) PerformOptionBeforeCall(mock *Mock) {
-}
+func (o *ExpectUpcomingStartsOption) PriorEventsOption(mock *Mock) {}
 
-func (o *ExpectStartsBeforeNextOption) PerformOptionAfterCall(mock *Mock) {
+func (o *ExpectUpcomingStartsOption) UpcomingEventsOption(mock *Mock) {
 	mock.ExpectStarts(int(o.starts))
 }
 
-type ExpectConfirmsBeforeNextOption struct {
+func (o *ExpectUpcomingStartsOption) AfterClockAdvanceOption(mock *Mock) {}
+
+type ExpectUpcomingConfirmsOption struct {
 	confirms int
 }
 
-func ExpectConfirmsBeforeNext(confirms int) *ExpectConfirmsBeforeNextOption {
-	return &ExpectConfirmsBeforeNextOption{confirms}
+func ExpectUpcomingConfirms(confirms int) *ExpectUpcomingConfirmsOption {
+	return &ExpectUpcomingConfirmsOption{confirms}
 }
 
-func (o *ExpectConfirmsBeforeNextOption) PerformOptionBeforeCall(mock *Mock) {
-}
+func (o *ExpectUpcomingConfirmsOption) PriorEventsOption(mock *Mock) {}
 
-func (o *ExpectConfirmsBeforeNextOption) PerformOptionAfterCall(mock *Mock) {
+func (o *ExpectUpcomingConfirmsOption) UpcomingEventsOption(mock *Mock) {
 	mock.ExpectConfirms(int(o.confirms))
 }
 
-type WaitForStartsOption struct{}
+func (o *ExpectUpcomingConfirmsOption) AfterClockAdvanceOption(mock *Mock) {}
 
-func (o *WaitForStartsOption) PerformOptionBeforeCall(mock *Mock) {
+type WaitForStartsBeforeOption struct{}
+
+func (o *WaitForStartsBeforeOption) PriorEventsOption(mock *Mock) {
 	mock.WaitForStart()
 }
 
-func (o *WaitForStartsOption) PerformOptionAfterCall(mock *Mock) {
+func (o *WaitForStartsBeforeOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitForStartsBeforeOption) AfterClockAdvanceOption(mock *Mock) {}
+
+type WaitForConfirmsBeforeOption struct{}
+
+func (o *WaitForConfirmsBeforeOption) PriorEventsOption(mock *Mock) {
+	mock.WaitForConfirm()
+}
+
+func (o *WaitForConfirmsBeforeOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitForConfirmsBeforeOption) AfterClockAdvanceOption(mock *Mock) {}
+
+type WaitBeforeOption struct{}
+
+func (o *WaitBeforeOption) PriorEventsOption(mock *Mock) {
+	mock.Wait()
+}
+
+func (o *WaitBeforeOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitBeforeOption) AfterClockAdvanceOption(mock *Mock) {}
+
+type WaitForStartsAfterOption struct{}
+
+func (o *WaitForStartsAfterOption) PriorEventsOption(mock *Mock) {}
+
+func (o *WaitForStartsAfterOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitForStartsAfterOption) AfterClockAdvanceOption(mock *Mock) {
+	mock.WaitForStart()
+}
+
+type WaitForConfirmsAfterOption struct{}
+
+func (o *WaitForConfirmsAfterOption) PriorEventsOption(mock *Mock) {}
+
+func (o *WaitForConfirmsAfterOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitForConfirmsAfterOption) AfterClockAdvanceOption(mock *Mock) {
+	mock.WaitForConfirm()
+}
+
+type WaitAfterOption struct{}
+
+func (o *WaitAfterOption) PriorEventsOption(mock *Mock) {}
+
+func (o *WaitAfterOption) UpcomingEventsOption(mock *Mock) {}
+
+func (o *WaitAfterOption) AfterClockAdvanceOption(mock *Mock) {
+	mock.Wait()
 }
 
 type OptimisticSchedOption struct{}
 
-func (o *OptimisticSchedOption) PerformOptionBeforeCall(mock *Mock) {}
+func (o *OptimisticSchedOption) PriorEventsOption(mock *Mock) {}
 
-func (o *OptimisticSchedOption) PerformOptionAfterCall(mock *Mock) {
+func (o *OptimisticSchedOption) UpcomingEventsOption(mock *Mock) {
 	gosched()
 }
+
+func (o *OptimisticSchedOption) AfterClockAdvanceOption(mock *Mock) {}
 
 // Mock represents a mock clock that only moves forward programmatically.
 // It can be preferable to a real-time clock when testing time-based functionality.
@@ -116,7 +179,7 @@ type Mock struct {
 func NewMock(opts ...Option) *Mock {
 	ret := &Mock{now: time.Unix(0, 0)}
 	for _, opt := range opts {
-		opt.PerformOptionAfterCall(ret)
+		opt.UpcomingEventsOption(ret)
 	}
 	return ret
 }
@@ -124,8 +187,9 @@ func NewMock(opts ...Option) *Mock {
 // ExpectStarts informs the mock how many timers should have been created before we advance the clock
 func (m *Mock) ExpectStarts(timerCount int) {
 	m.mu.Lock()
-	m.expectingStarts++
-	m.newTimers.Add(timerCount - m.recentTimers)
+	newStarts := timerCount - m.recentTimers
+	m.expectingStarts = m.expectingStarts + newStarts
+	m.newTimers.Add(newStarts)
 	m.recentTimers = 0
 	m.mu.Unlock()
 }
@@ -133,16 +197,14 @@ func (m *Mock) ExpectStarts(timerCount int) {
 // WaitForStart will block until all expected timers have started
 func (m *Mock) WaitForStart() {
 	m.newTimers.Wait()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.expectingStarts = 0
 }
 
 // ExpectConfirms informs the mock how many timers should have been confirmed before we advance the clock
 func (m *Mock) ExpectConfirms(confirmCount int) {
 	m.mu.Lock()
-	m.expectingConfirms++
-	m.newTimers.Add(confirmCount - m.recentConfirms)
+	newconfirms := confirmCount - m.recentConfirms
+	m.expectingConfirms = m.expectingConfirms + newconfirms
+	m.confirms.Add(newconfirms)
 	m.recentConfirms = 0
 	m.mu.Unlock()
 }
@@ -150,16 +212,23 @@ func (m *Mock) ExpectConfirms(confirmCount int) {
 // WaitForConfirm will block until all expected timers have been confirmed
 func (m *Mock) WaitForConfirm() {
 	m.confirms.Wait()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.expectingConfirms = 0
+}
+
+// Wait waits for starts and confirms before returning
+func (m *Mock) Wait() {
+	m.WaitForStart()
+	m.WaitForConfirm()
 }
 
 // Add moves the current time of the mock clock forward by the specified duration.
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Add(d time.Duration, opts ...Option) {
 	for _, opt := range opts {
-		opt.PerformOptionBeforeCall(m)
+		opt.PriorEventsOption(m)
+	}
+
+	for _, opt := range opts {
+		opt.UpcomingEventsOption(m)
 	}
 	// Calculate the final current time.
 	t := m.now.Add(d)
@@ -175,17 +244,17 @@ func (m *Mock) Add(d time.Duration, opts ...Option) {
 	m.mu.Lock()
 	m.now = t
 	m.mu.Unlock()
-
-	for _, opt := range opts {
-		opt.PerformOptionAfterCall(m)
-	}
 }
 
 // Set sets the current time of the mock clock to a specific one.
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Set(t time.Time, opts ...Option) {
 	for _, opt := range opts {
-		opt.PerformOptionBeforeCall(m)
+		opt.PriorEventsOption(m)
+	}
+
+	for _, opt := range opts {
+		opt.UpcomingEventsOption(m)
 	}
 	// Continue to execute timers until there are no more before the new time.
 	for {
@@ -198,10 +267,6 @@ func (m *Mock) Set(t time.Time, opts ...Option) {
 	m.mu.Lock()
 	m.now = t
 	m.mu.Unlock()
-
-	for _, opt := range opts {
-		opt.PerformOptionAfterCall(m)
-	}
 }
 
 // runNextTimer executes the next timer in chronological order and moves the
@@ -288,6 +353,7 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 	m.timers = append(m.timers, (*internalTicker)(t))
 	m.recentTimers++
 	if m.expectingStarts > 0 {
+		m.expectingStarts--
 		m.newTimers.Done() // signal that we started a timer
 	} else if m.tForFail != nil {
 		m.tForFail.Errorf("unexpected ticker start")
@@ -311,6 +377,7 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
 	if m.expectingStarts > 0 {
+		m.expectingStarts--
 		m.newTimers.Done() // signal that we started a timer
 	} else if m.tForFail != nil {
 		m.tForFail.Errorf("unexpected timer start")
@@ -318,6 +385,19 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		m.recentTimers++
 	}
 	return t
+}
+
+func (m *Mock) Confirm() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.expectingConfirms > 0 {
+		m.expectingConfirms--
+		m.confirms.Done() // signal that timer has been confirmed
+	} else if m.tForFail != nil {
+		m.tForFail.Errorf("Unexpected ticker confirmation")
+	} else {
+		m.recentConfirms++
+	}
 }
 
 func (m *Mock) removeClockTimer(t clockTimer) {
@@ -338,7 +418,9 @@ func (t *internalTimer) Next() time.Time { return t.next }
 func (t *internalTimer) Tick(now time.Time) {
 	t.mock.mu.Lock()
 	if t.fn != nil {
+		t.mock.mu.Unlock()
 		t.fn()
+		t.mock.mu.Lock()
 	} else {
 		t.c <- now
 	}

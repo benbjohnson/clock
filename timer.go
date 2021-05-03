@@ -66,15 +66,7 @@ func (t *Timer) Confirm() {
 		return
 	}
 
-	t.mock.mu.Lock()
-	defer t.mock.mu.Unlock()
-	if t.mock.expectingConfirms > 0 {
-		t.mock.confirms.Done() // signal that timer has been confirmed
-	} else if t.mock.tForFail != nil {
-		t.mock.tForFail.Errorf("Unexpected timer confirmation")
-	} else {
-		t.mock.recentConfirms++
-	}
+	t.mock.Confirm()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
@@ -118,13 +110,5 @@ func (t *Ticker) Confirm() {
 		return
 	}
 
-	t.mock.mu.Lock()
-	defer t.mock.mu.Unlock()
-	if t.mock.expectingConfirms > 0 {
-		t.mock.confirms.Done() // signal that timer has been confirmed
-	} else if t.mock.tForFail != nil {
-		t.mock.tForFail.Errorf("Unexpected ticker confirmation")
-	} else {
-		t.mock.recentConfirms++
-	}
+	t.mock.Confirm()
 }
