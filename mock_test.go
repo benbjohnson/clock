@@ -337,7 +337,6 @@ func ExampleMock_AfterFunc() {
 		count = 100
 		clock.Confirm()
 	})
-	clock.WaitForStart()
 
 	// Print the starting value.
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
