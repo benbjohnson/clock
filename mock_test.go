@@ -296,6 +296,10 @@ func TestMock_Ticker_Multi(t *testing.T) {
 	}
 }
 
+func TestMock_Interface(t *testing.T) {
+	var _ Clock = NewMock()
+}
+
 func ExampleMock_After() {
 	// Create a new mock clock.
 	clock := NewMock(ExpectUpcomingStarts(1))
