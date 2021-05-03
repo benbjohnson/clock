@@ -111,7 +111,7 @@ Timers and Tickers are also controlled by this same mock clock. They will only
 execute when the clock is moved forward:
 
 ```go
-mock := clock.NewMock(clock.ExpectStartsBeforeNext(1), clock.FailOnUnexpectedUpcomingEvent(t))
+mock := clock.NewMock(clock.ExpectUpcomingStarts(1), clock.FailOnUnexpectedUpcomingEvent(t))
 count := 0
 
 // Kick off a timer to increment every 1 mock second.
@@ -120,23 +120,24 @@ go func() {
     for {
         <-ticker.C
         count++
-		// this tells the mock that the timer event has been handled
-		ticker.Confirm()
+	// this tells the mock that the timer event has been handled
+	ticker.Confirm()
     }
 }()
 
 // Wait for all expected starts, then move the clock forward 10 seconds.
-// Expect a confirm
-mock.Add(10 * time.Second, clock.WaitForStarts, clock.ExpectConfirmsBeforeNext(2))
+// Expect a confirm. After advancing the clock, wait until the confirm has been seen
+mock.Add(10 * time.Second, clock.WaitForStartsBefore, clock.ExpectUpcomingConfirms(2))
 
 // this will ensure this thread waits until the timer thread has defintely run and handled the timer event
 mock.WaitForConfirms()
+
 // This prints 10.
 fmt.Println(count)
 
-mock.Add(20 * time.Second, clock.WaitForConfirms, clock.ExpectConfirmsBeforeNext(2))
+// for convenience and readability, you can pass options to make waits happen
+mock.Add(20 * time.Second, clock.ExpectUpcomingConfirms(2), clock.WaitAfter)
 
-mock.WaitForConfirms()
 // This prints 30.
 fmt.Println(count)
 ```
