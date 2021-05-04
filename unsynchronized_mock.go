@@ -18,10 +18,6 @@ var (
 	OptimisticSched               = &OptimisticSchedOption{}
 )
 
-type Confirmable interface {
-	Confirm()
-}
-
 type Option interface {
 	PriorEventsOption(*UnsynchronizedMock)
 	UpcomingEventsOption(*UnsynchronizedMock)
