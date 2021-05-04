@@ -20,11 +20,11 @@ func (a clockTimers) Less(i, j int) bool { return a[i].Next().Before(a[j].Next()
 type Timer struct {
 	C       <-chan time.Time
 	c       chan time.Time
-	timer   *time.Timer // realtime impl, if set
-	next    time.Time   // next tick time
-	mock    *Mock       // mock clock, if set
-	fn      func()      // AfterFunc function, if set
-	stopped bool        // True if stopped, false if running
+	timer   *time.Timer         // realtime impl, if set
+	next    time.Time           // next tick time
+	mock    *UnsynchronizedMock // mock clock, if set
+	fn      func()              // AfterFunc function, if set
+	stopped bool                // True if stopped, false if running
 }
 
 // Stop turns off the ticker.
@@ -73,10 +73,10 @@ func (t *Timer) Confirm() {
 type Ticker struct {
 	C      <-chan time.Time
 	c      chan time.Time
-	ticker *time.Ticker  // realtime impl, if set
-	next   time.Time     // next tick time
-	mock   *Mock         // mock clock, if set
-	d      time.Duration // time between ticks
+	ticker *time.Ticker        // realtime impl, if set
+	next   time.Time           // next tick time
+	mock   *UnsynchronizedMock // mock clock, if set
+	d      time.Duration       // time between ticks
 }
 
 // Stop turns off the ticker.

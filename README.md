@@ -69,7 +69,7 @@ in a separate gothread. This creates a couple of common race conditions:
  * You need to be confident the thread that handles the timer is _done_ doing its thing
    so you can then do asserts about what the result was.
 
-The mock provides some hooks to make this easier to deal with.
+This library provides some hooks to make this easier to deal with.
 
 ####Expect
 
@@ -87,6 +87,18 @@ Optionally, you can toggle the mock to fail a test if an unexpected start or eve
 FailOnUnexpectedUpcomingEvent option. Once this is set, any new timers or new confirms that aren't accounted
 for by a call to Expect will fail a test. This behavior continues on all subsequent calls unless you 
 expressly turn it back off using IgnoreUnexpectedUpcomingEvent.
+
+### Defaults
+
+The mock returned by `NewMock` assumes / enforces
+ * that tests should fail when unexpected timer events happen (if testing.T is not nil)
+ * that clock should block until all expected timers are started before advancing the clock
+ * that clock should block until all timer handling has been confirmed before continuing
+
+It's expected that this is usually (always?) the right approach during testing. If there is
+a use case where it's not, then `NewUnconfirmedMock()` can be used instead. It supports all
+of the same synchronization features, but does not enforce them by default, leaving it to the
+user to choose when to specify a Wait or to turn on FailOnUnexpectedEvent.
 
 ### Controlling time
 
