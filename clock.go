@@ -24,13 +24,7 @@ type Clock interface {
 // clock implements a real-time clock by simply wrapping the time package functions.
 type clock struct{}
 
-var systemClock Clock
-
-func init() {
-	if systemClock == nil {
-		systemClock = New()
-	}
-}
+var systemClock Clock = New()
 
 func SetSystemClock(clock Clock) {
 	systemClock = clock
