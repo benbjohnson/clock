@@ -1,5 +1,7 @@
-clock
+Clock
 =====
+
+[![Go](https://github.com/kraney/clock/actions/workflows/go.yml/badge.svg)](https://github.com/kraney/clock/actions/workflows/go.yml)
 
 Clock is a small library for mocking time in Go. It provides an interface
 around the standard library's [`time`][time] package so that the application
