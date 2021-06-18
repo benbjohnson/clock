@@ -18,7 +18,9 @@ func TestClock_After(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -26,6 +28,7 @@ func TestClock_After(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure that the clock's AfterFunc executes at the correct time.
@@ -37,7 +40,9 @@ func TestClock_AfterFunc(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -50,6 +55,7 @@ func TestClock_AfterFunc(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure that the clock's time matches the standary library.
@@ -70,7 +76,9 @@ func TestClock_Sleep(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -78,6 +86,7 @@ func TestClock_Sleep(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure that the clock ticks correctly.
@@ -89,7 +98,9 @@ func TestClock_Tick(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -99,6 +110,7 @@ func TestClock_Tick(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure that the clock's ticker ticks correctly.
@@ -110,7 +122,9 @@ func TestClock_Ticker(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -120,6 +134,7 @@ func TestClock_Ticker(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure that the clock's ticker can stop correctly.
@@ -162,7 +177,9 @@ func TestClock_Timer(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -171,6 +188,7 @@ func TestClock_Timer(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 
 	if timer.Stop() {
 		t.Fatal("timer still running")
@@ -202,7 +220,9 @@ func TestClock_Timer_Reset(t *testing.T) {
 	}()
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
+		if ok {
+			t.Fatal("too late")
+		}
 	}()
 	gosched()
 
@@ -215,6 +235,7 @@ func TestClock_Timer_Reset(t *testing.T) {
 	if !ok {
 		t.Fatal("too early")
 	}
+	ok = false
 }
 
 // Ensure reset can be called immediately after reading channel
