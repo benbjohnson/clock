@@ -285,14 +285,14 @@ type internalTimer Timer
 func (t *internalTimer) Next() time.Time { return t.next }
 func (t *internalTimer) Tick(now time.Time) {
 	t.mock.mu.Lock()
+	t.mock.removeClockTimer((*internalTimer)(t))
+	t.stopped = true
+	t.mock.mu.Unlock()
 	if t.fn != nil {
 		t.fn()
 	} else {
 		t.c <- now
 	}
-	t.mock.removeClockTimer((*internalTimer)(t))
-	t.stopped = true
-	t.mock.mu.Unlock()
 	gosched()
 }
 

@@ -3,6 +3,7 @@ package clock
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -341,6 +342,27 @@ func TestMock_AfterFunc_Stop(t *testing.T) {
 	timer.Stop()
 	clock.Add(10 * time.Second)
 	gosched()
+}
+
+// Ensure that it is possible to reset a timer from inside the AfterFunc callabck.
+func TestMock_AfterFunc_Reset(t *testing.T) {
+	clock := NewMock()
+	firstTime := clock.Now().Add(time.Second)
+	want := []time.Time{
+		firstTime,
+		firstTime.Add(2 * time.Minute),
+		firstTime.Add(4 * time.Minute),
+	}
+	var got []time.Time
+	var timer *Timer
+	timer = clock.AfterFunc(time.Second, func() {
+		got = append(got, clock.Now())
+		timer.Reset(2 * time.Minute)
+	})
+	clock.Add(5 * time.Minute)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Got %v, want %v", got, want)
+	}
 }
 
 // Ensure that the mock's current time can be changed.
