@@ -284,16 +284,20 @@ type internalTimer Timer
 
 func (t *internalTimer) Next() time.Time { return t.next }
 func (t *internalTimer) Tick(now time.Time) {
+	// a gosched() after ticking, to allow any consequences of the
+	// tick to complete
+	defer gosched()
+
 	t.mock.mu.Lock()
 	if t.fn != nil {
-		t.fn()
+		// defer function execution until the lock is released, and
+		defer t.fn()
 	} else {
 		t.c <- now
 	}
 	t.mock.removeClockTimer((*internalTimer)(t))
 	t.stopped = true
 	t.mock.mu.Unlock()
-	gosched()
 }
 
 // Ticker holds a channel that receives "ticks" at regular intervals.
