@@ -613,5 +613,20 @@ func ExampleMock_Timer() {
 	// Count is 1 after 10 seconds
 }
 
+func TestMock_ReentrantDeadlock(t *testing.T) {
+	mockedClock := NewMock()
+	timer20 := mockedClock.Timer(20 * time.Second)
+	go func() {
+		v := <-timer20.C
+		panic(fmt.Sprintf("timer should not have ticked: %v", v))
+	}()
+	mockedClock.AfterFunc(10*time.Second, func() {
+		timer20.Stop()
+	})
+
+	mockedClock.Add(15 * time.Second)
+	mockedClock.Add(15 * time.Second)
+}
+
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
 func warnf(msg string, v ...interface{}) { fmt.Fprintf(os.Stderr, msg+"\n", v...) }
