@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// Re-export of time.Duration
+type Duration = time.Duration
+
 // Clock represents an interface to the functions in the standard library time
 // package. Two implementations are available in the clock package. The first
 // is a real-time clock which simply wraps the time package's functions. The
