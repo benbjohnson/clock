@@ -11,44 +11,34 @@ import (
 
 // Ensure that the clock's After channel sends at the correct time.
 func TestClock_After(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	<-New().After(20 * time.Millisecond)
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 40*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 }
 
 // Ensure that the clock's AfterFunc executes at the correct time.
 func TestClock_AfterFunc(t *testing.T) {
 	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
 	var wg sync.WaitGroup
+
 	wg.Add(1)
+	start := time.Now()
 	New().AfterFunc(20*time.Millisecond, func() {
+		ok = true
 		wg.Done()
 	})
 	wg.Wait()
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 40*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
+	}
 	if !ok {
-		t.Fatal("too early")
+		t.Fatal("Function did not run")
 	}
 }
 
@@ -63,62 +53,38 @@ func TestClock_Now(t *testing.T) {
 
 // Ensure that the clock sleeps for the appropriate amount of time.
 func TestClock_Sleep(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	New().Sleep(20 * time.Millisecond)
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 40*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 }
 
 // Ensure that the clock ticks correctly.
 func TestClock_Tick(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	c := New().Tick(20 * time.Millisecond)
 	<-c
 	<-c
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 50*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 }
 
 // Ensure that the clock's ticker ticks correctly.
 func TestClock_Ticker(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	ticker := New().Ticker(50 * time.Millisecond)
 	<-ticker.C
 	<-ticker.C
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 100*time.Millisecond || dur > 200*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 }
 
@@ -155,21 +121,13 @@ func TestClock_Ticker_Rst(t *testing.T) {
 
 // Ensure that the clock's timer waits correctly.
 func TestClock_Timer(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	timer := New().Timer(20 * time.Millisecond)
 	<-timer.C
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 40*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 
 	if timer.Stop() {
@@ -195,25 +153,16 @@ func TestClock_Timer_Stop(t *testing.T) {
 
 // Ensure that the clock's timer can be reset.
 func TestClock_Timer_Reset(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		ok = true
-	}()
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		t.Fatal("too late")
-	}()
-	gosched()
-
+	start := time.Now()
 	timer := New().Timer(10 * time.Millisecond)
 	if !timer.Reset(20 * time.Millisecond) {
 		t.Fatal("timer not running")
 	}
-
 	<-timer.C
-	if !ok {
-		t.Fatal("too early")
+	dur := time.Since(start)
+
+	if dur < 20*time.Millisecond || dur > 40*time.Millisecond {
+		t.Fatalf("Bad duration: %s", dur)
 	}
 }
 
