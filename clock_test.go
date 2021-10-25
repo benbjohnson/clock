@@ -9,6 +9,32 @@ import (
 	"time"
 )
 
+// assert that the given channel is not closed
+func assertNotClosed(ch <-chan struct{}) {
+	select {
+	case <-ch:
+		panic("channel is closed")
+	default:
+	}
+}
+
+// drain the channel and return the last value or -1
+func drainChan(ch <-chan int) int {
+	got := -1
+	for {
+		select {
+		case i, ok := <-ch:
+			if ok {
+				got = i
+			} else {
+				return got
+			}
+		default:
+			return got
+		}
+	}
+}
+
 // Ensure that the clock's After channel sends at the correct time.
 func TestClock_After(t *testing.T) {
 	start := time.Now()
@@ -102,19 +128,14 @@ func TestClock_Ticker_Stp(t *testing.T) {
 
 // Ensure that the clock's ticker can reset correctly.
 func TestClock_Ticker_Rst(t *testing.T) {
-	var ok bool
-	go func() {
-		time.Sleep(30 * time.Millisecond)
-		ok = true
-	}()
-	gosched()
-
+	start := time.Now()
 	ticker := New().Ticker(20 * time.Millisecond)
 	<-ticker.C
 	ticker.Reset(5 * time.Millisecond)
 	<-ticker.C
-	if ok {
-		t.Fatal("too late")
+	dur := time.Since(start)
+	if dur >= 30*time.Millisecond {
+		t.Fatal("took more than 30ms")
 	}
 	ticker.Stop()
 }
@@ -487,24 +508,29 @@ func ExampleMock_After() {
 	count := 0
 
 	ready := make(chan struct{})
+	done := make(chan struct{})
 	// Create a channel to execute after 10 mock seconds.
 	go func() {
 		ch := clock.After(10 * time.Second)
 		close(ready)
 		<-ch
-		count = 100
+		count += 100
+		close(done)
 	}()
 	<-ready
 
 	// Print the starting value.
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	assertNotClosed(done)
 
 	// Move the clock forward 5 seconds and print the value again.
 	clock.Add(5 * time.Second)
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	assertNotClosed(done)
 
 	// Move the clock forward 5 seconds to the tick time and check the value.
 	clock.Add(5 * time.Second)
+	<-done
 	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
 
 	// Output:
@@ -516,101 +542,113 @@ func ExampleMock_After() {
 func ExampleMock_AfterFunc() {
 	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	done := make(chan struct{})
 
 	// Execute a function after 10 mock seconds.
 	clock.AfterFunc(10*time.Second, func() {
-		count = 100
+		close(done)
 	})
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Println(clock.Now().UTC())
+	assertNotClosed(done)
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	<-done
+	fmt.Println(clock.Now().UTC())
 
 	// Output:
-	// 1970-01-01 00:00:00 +0000 UTC: 0
-	// 1970-01-01 00:00:10 +0000 UTC: 100
+	// 1970-01-01 00:00:00 +0000 UTC
+	// 1970-01-01 00:00:10 +0000 UTC
 }
 
 func ExampleMock_Sleep() {
 	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
 
+	ready := make(chan struct{})
+	done := make(chan struct{})
 	// Execute a function after 10 mock seconds.
 	go func() {
+		close(ready)
 		clock.Sleep(10 * time.Second)
-		count = 100
+		close(done)
 	}()
-	gosched()
+	<-ready
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Println(clock.Now().UTC())
+	assertNotClosed(done)
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	<-done
+	fmt.Println(clock.Now().UTC())
 
 	// Output:
-	// 1970-01-01 00:00:00 +0000 UTC: 0
-	// 1970-01-01 00:00:10 +0000 UTC: 100
+	// 1970-01-01 00:00:00 +0000 UTC
+	// 1970-01-01 00:00:10 +0000 UTC
 }
 
 func ExampleMock_Ticker() {
 	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
 
 	ready := make(chan struct{})
+	vals := make(chan int, 100)
+
 	// Increment count every mock second.
 	go func() {
+		count := 0
 		ticker := clock.Ticker(1 * time.Second)
 		close(ready)
 		for {
 			<-ticker.C
 			count++
+			vals <- count
 		}
 	}()
 	<-ready
 
-	// Move the clock forward 10 seconds and print the new value.
+	// Move the clock forward 10 seconds and print the most recent value
+	// on the vals channel
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count)
+	fmt.Printf("Latest count is %d after 10 seconds\n", drainChan(vals))
 
-	// Move the clock forward 5 more seconds and print the new value.
+	// Move the clock forward 5 more seconds and print the most recet value.
 	clock.Add(5 * time.Second)
-	fmt.Printf("Count is %d after 15 seconds\n", count)
+	fmt.Printf("Latest count is %d after 15 seconds\n", drainChan(vals))
 
 	// Output:
-	// Count is 10 after 10 seconds
-	// Count is 15 after 15 seconds
+	// Latest count is 10 after 10 seconds
+	// Latest count is 15 after 15 seconds
 }
 
 func ExampleMock_Timer() {
 	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
 
 	ready := make(chan struct{})
+	done := make(chan struct{})
 	// Increment count after a mock second.
 	go func() {
 		timer := clock.Timer(1 * time.Second)
 		close(ready)
 		<-timer.C
-		count++
+		close(done)
 	}()
 	<-ready
+	assertNotClosed(done)
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("Count is %d after 10 seconds\n", count)
+	<-done
+	fmt.Println(clock.Now().UTC())
 
 	// Output:
-	// Count is 1 after 10 seconds
+	// 1970-01-01 00:00:10 +0000 UTC
 }
 
 func TestMock_ReentrantDeadlock(t *testing.T) {
