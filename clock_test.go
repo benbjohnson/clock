@@ -295,6 +295,19 @@ func TestMock_Since(t *testing.T) {
 	}
 }
 
+func TestMock_Until(t *testing.T) {
+	clock := NewMock()
+
+	end := clock.Now().Add(500 * time.Second)
+	if dur := clock.Until(end); dur.Seconds() != 500 {
+		t.Fatalf("expected 500s duration between `clock` and `end`, actually: %v", dur.Seconds())
+	}
+	clock.Add(100 * time.Second)
+	if dur := clock.Until(end); dur.Seconds() != 400 {
+		t.Fatalf("expected 400s duration between `clock` and `end`, actually: %v", dur.Seconds())
+	}
+}
+
 // Ensure that the mock can sleep for the correct time.
 func TestMock_Sleep(t *testing.T) {
 	var ok int32
