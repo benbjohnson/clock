@@ -19,6 +19,7 @@ type Clock interface {
 	AfterFunc(d time.Duration, f func()) *Timer
 	Now() time.Time
 	Since(t time.Time) time.Duration
+	Until(t time.Time) time.Duration
 	Sleep(d time.Duration)
 	Tick(d time.Duration) <-chan time.Time
 	Ticker(d time.Duration) *Ticker
@@ -42,6 +43,8 @@ func (c *clock) AfterFunc(d time.Duration, f func()) *Timer {
 func (c *clock) Now() time.Time { return time.Now() }
 
 func (c *clock) Since(t time.Time) time.Duration { return time.Since(t) }
+
+func (c *clock) Until(t time.Time) time.Duration { return time.Until(t) }
 
 func (c *clock) Sleep(d time.Duration) { time.Sleep(d) }
 
@@ -164,9 +167,14 @@ func (m *Mock) Now() time.Time {
 	return m.now
 }
 
-// Since returns time since the mock clock's wall time.
+// Since returns time since t, using the mock clock's wall time.
 func (m *Mock) Since(t time.Time) time.Duration {
 	return m.Now().Sub(t)
+}
+
+// Until returns time until t, using the mock clock's wall time.
+func (m *Mock) Until(t time.Time) time.Duration {
+	return t.Sub(m.Now())
 }
 
 // Sleep pauses the goroutine for the given duration on the mock clock.
