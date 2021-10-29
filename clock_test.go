@@ -300,11 +300,11 @@ func TestMock_Until(t *testing.T) {
 
 	end := clock.Now().Add(500 * time.Second)
 	if dur := clock.Until(end); dur.Seconds() != 500 {
-		t.Fatalf("expected 500 to the end, actually: %v", dur.Seconds())
+		t.Fatalf("expected 500s duration between `clock` and `end`, actually: %v", dur.Seconds())
 	}
 	clock.Add(100 * time.Second)
 	if dur := clock.Until(end); dur.Seconds() != 400 {
-		t.Fatalf("expected 400 to the end, actually: %v", dur.Seconds())
+		t.Fatalf("expected 400s duration between `clock` and `end`, actually: %v", dur.Seconds())
 	}
 }
 

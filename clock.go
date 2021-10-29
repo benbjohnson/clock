@@ -167,12 +167,12 @@ func (m *Mock) Now() time.Time {
 	return m.now
 }
 
-// Since returns time since t, using the mock clock's wall time.
+// Since returns time since `t` using the mock clock's wall time.
 func (m *Mock) Since(t time.Time) time.Duration {
 	return m.Now().Sub(t)
 }
 
-// Until returns time until t, using the mock clock's wall time.
+// Until returns time until `t` using the mock clock's wall time.
 func (m *Mock) Until(t time.Time) time.Duration {
 	return t.Sub(m.Now())
 }
