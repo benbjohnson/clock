@@ -18,7 +18,7 @@ func (m *Mock) WithDeadline(parent context.Context, deadline time.Time) (context
 	}
 	ctx := &timerCtx{clock: m, parent: parent, deadline: deadline, done: make(chan struct{})}
 	propagateCancel(parent, ctx)
-	dur := deadline.Sub(m.Now())
+	dur := m.Until(deadline)
 	if dur <= 0 {
 		ctx.cancel(context.DeadlineExceeded) // deadline has already passed
 		return ctx, func() { ctx.cancel(context.Canceled) }
