@@ -21,7 +21,7 @@ func (m *Mock) WithDeadline(parent context.Context, deadline time.Time) (context
 	dur := m.Until(deadline)
 	if dur <= 0 {
 		ctx.cancel(context.DeadlineExceeded) // deadline has already passed
-		return ctx, func() { ctx.cancel(context.Canceled) }
+		return ctx, func() {}
 	}
 	ctx.Lock()
 	defer ctx.Unlock()
