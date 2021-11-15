@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -24,6 +25,8 @@ type Clock interface {
 	Tick(d time.Duration) <-chan time.Time
 	Ticker(d time.Duration) *Ticker
 	Timer(d time.Duration) *Timer
+	WithDeadline(parent context.Context, d time.Time) (context.Context, context.CancelFunc)
+	WithTimeout(parent context.Context, t time.Duration) (context.Context, context.CancelFunc)
 }
 
 // New returns an instance of a real-time clock.
@@ -60,7 +63,15 @@ func (c *clock) Timer(d time.Duration) *Timer {
 	return &Timer{C: t.C, timer: t}
 }
 
-// Mock represents a mock clock that only moves forward programmatically.
+func (c *clock) WithDeadline(parent context.Context, d time.Time) (context.Context, context.CancelFunc) {
+	return context.WithDeadline(parent, d)
+}
+
+func (c *clock) WithTimeout(parent context.Context, t time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, t)
+}
+
+// Mock represents a mock clock that only moves forward programmically.
 // It can be preferable to a real-time clock when testing time-based functionality.
 type Mock struct {
 	mu     sync.Mutex
@@ -360,3 +371,8 @@ func (t *internalTicker) Tick(now time.Time) {
 
 // Sleep momentarily so that other goroutines can process.
 func gosched() { time.Sleep(1 * time.Millisecond) }
+
+var (
+	// type checking
+	_ Clock = &Mock{}
+)
