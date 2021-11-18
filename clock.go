@@ -167,7 +167,9 @@ func (m *Mock) After(d time.Duration) <-chan time.Time {
 func (m *Mock) AfterFunc(d time.Duration, f func()) *Timer {
 	t := m.Timer(d)
 	t.C = nil
+	m.mu.Lock()
 	t.fn = f
+	m.mu.Unlock()
 	return t
 }
 

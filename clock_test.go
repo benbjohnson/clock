@@ -652,3 +652,42 @@ func TestMock_ReentrantDeadlock(t *testing.T) {
 
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
 func warnf(msg string, v ...interface{}) { fmt.Fprintf(os.Stderr, msg+"\n", v...) }
+
+func TestMock_AddAfterFuncRace(t *testing.T) {
+	// start blocks the goroutines in this test
+	// until we're ready for them to race.
+	start := make(chan struct{})
+
+	var wg sync.WaitGroup
+
+	mockedClock := NewMock()
+
+	called := false
+	defer func() {
+		if !called {
+			t.Errorf("AfterFunc did not call the function")
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+
+		mockedClock.AfterFunc(time.Millisecond, func() {
+			called = true
+		})
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+
+		mockedClock.Add(time.Millisecond)
+		mockedClock.Add(time.Millisecond)
+	}()
+
+	close(start) // unblock the goroutines
+	wg.Wait()    // and wait for them
+}
