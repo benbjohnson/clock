@@ -128,6 +128,26 @@ func TestClock_Ticker_Rst(t *testing.T) {
 	ticker.Stop()
 }
 
+// Ensure that the clock's ticker can stop and then be reset correctly.
+func TestClock_Ticker_Stop_Rst(t *testing.T) {
+	start := time.Now()
+	ticker := New().Ticker(20 * time.Millisecond)
+	<-ticker.C
+	ticker.Stop()
+	select {
+	case <-ticker.C:
+		t.Fatal("unexpected send")
+	case <-time.After(30 * time.Millisecond):
+	}
+	ticker.Reset(5 * time.Millisecond)
+	<-ticker.C
+	dur := time.Since(start)
+	if dur >= 60*time.Millisecond {
+		t.Fatal("took more than 60ms")
+	}
+	ticker.Stop()
+}
+
 // Ensure that the clock's timer waits correctly.
 func TestClock_Timer(t *testing.T) {
 	start := time.Now()
@@ -472,6 +492,52 @@ func TestMock_Ticker_Reset(t *testing.T) {
 
 	if atomic.LoadInt32(&n) != 3 {
 		t.Fatalf("expected 3, got: %d", n)
+	}
+}
+
+func TestMock_Ticker_Stop_Reset(t *testing.T) {
+	var n int32
+	clock := NewMock()
+
+	ticker := clock.Ticker(5 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			<-ticker.C
+			atomic.AddInt32(&n, 1)
+		}
+	}()
+	gosched()
+
+	// Move clock forward.
+	clock.Add(10 * time.Second)
+	if atomic.LoadInt32(&n) != 2 {
+		t.Fatalf("expected 2, got: %d", n)
+	}
+
+	ticker.Stop()
+
+	// Move clock forward again.
+	clock.Add(5 * time.Second)
+	if atomic.LoadInt32(&n) != 2 {
+		t.Fatalf("still expected 2, got: %d", n)
+	}
+
+	ticker.Reset(2 * time.Second)
+
+	// Advance the remaining 2 seconds
+	clock.Add(2 * time.Second)
+
+	if atomic.LoadInt32(&n) != 3 {
+		t.Fatalf("expected 3, got: %d", n)
+	}
+
+	// Advance another 2 seconds
+	clock.Add(2 * time.Second)
+
+	if atomic.LoadInt32(&n) != 4 {
+		t.Fatalf("expected 4, got: %d", n)
 	}
 }
 
