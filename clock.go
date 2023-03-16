@@ -126,6 +126,23 @@ func (m *Mock) Set(t time.Time) {
 	gosched()
 }
 
+// WaitForAllTimers sets the clock until all timers are expired
+func (m *Mock) WaitForAllTimers() time.Time {
+	// Continue to execute timers until there are no more
+	for {
+		m.mu.Lock()
+		if len(m.timers) == 0 {
+			m.mu.Unlock()
+			return m.Now()
+		}
+
+		sort.Sort(m.timers)
+		next := m.timers[len(m.timers)-1].Next()
+		m.mu.Unlock()
+		m.Set(next)
+	}
+}
+
 // runNextTimer executes the next timer in chronological order and moves the
 // current time to the timer's next tick time. The next time is not executed if
 // its next time is after the max time. Returns true if a timer was executed.
