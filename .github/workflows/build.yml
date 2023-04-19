@@ -13,7 +13,11 @@ jobs:
 
     strategy:
       matrix:
-        go: ["1.16.x", "1.17.x"]
+        # Test on one "earliest" Go as well as the latest two major Go
+        # versions. If some change requires bumping the "earliest" Go versiion,
+        # that's fine - just include that in the commit description so that
+        # users are aware.
+        go: ["1.16.x", "1.19.x", "1.20.x"]
 
     steps:
     - uses: actions/checkout@v2
