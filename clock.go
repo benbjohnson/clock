@@ -165,9 +165,17 @@ func (m *Mock) After(d time.Duration) <-chan time.Time {
 // AfterFunc waits for the duration to elapse and then executes a function.
 // A Timer is returned that can be stopped.
 func (m *Mock) AfterFunc(d time.Duration, f func()) *Timer {
-	t := m.Timer(d)
-	t.C = nil
-	t.fn = f
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ch := make(chan time.Time, 1)
+	t := &Timer{
+		c:       ch,
+		fn:      f,
+		mock:    m,
+		next:    m.now.Add(d),
+		stopped: false,
+	}
+	m.timers = append(m.timers, (*internalTimer)(t))
 	return t
 }
 
