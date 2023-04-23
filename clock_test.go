@@ -726,9 +726,9 @@ func TestMock_AddAfterFuncRace(t *testing.T) {
 
 	mockedClock := NewMock()
 
-	called := false
+	var calls counter
 	defer func() {
-		if !called {
+		if calls.get() == 0 {
 			t.Errorf("AfterFunc did not call the function")
 		}
 	}()
@@ -739,7 +739,7 @@ func TestMock_AddAfterFuncRace(t *testing.T) {
 		<-start
 
 		mockedClock.AfterFunc(time.Millisecond, func() {
-			called = true
+			calls.incr()
 		})
 	}()
 
