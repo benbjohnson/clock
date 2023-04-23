@@ -74,7 +74,10 @@ func (c *clock) WithTimeout(parent context.Context, t time.Duration) (context.Co
 // Mock represents a mock clock that only moves forward programmically.
 // It can be preferable to a real-time clock when testing time-based functionality.
 type Mock struct {
-	mu     sync.Mutex
+	// mu protects all other fields in this struct, and the data that they
+	// point to.
+	mu sync.Mutex
+
 	now    time.Time   // current time
 	timers clockTimers // tickers & timers
 }
@@ -89,7 +92,9 @@ func NewMock() *Mock {
 // This should only be called from a single goroutine at a time.
 func (m *Mock) Add(d time.Duration) {
 	// Calculate the final current time.
+	m.mu.Lock()
 	t := m.now.Add(d)
+	m.mu.Unlock()
 
 	// Continue to execute timers until there are no more before the new time.
 	for {
@@ -240,6 +245,8 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 	return t
 }
 
+// removeClockTimer removes a timer from m.timers. m.mu MUST be held
+// when this method is called.
 func (m *Mock) removeClockTimer(t clockTimer) {
 	for i, timer := range m.timers {
 		if timer == t {
@@ -380,7 +387,9 @@ func (t *internalTicker) Tick(now time.Time) {
 	case t.c <- now:
 	default:
 	}
+	t.mock.mu.Lock()
 	t.next = now.Add(t.d)
+	t.mock.mu.Unlock()
 	gosched()
 }
 
