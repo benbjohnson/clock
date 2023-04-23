@@ -604,24 +604,25 @@ func ExampleMock_After() {
 func ExampleMock_AfterFunc() {
 	// Create a new mock clock.
 	clock := NewMock()
-	count := 0
+	var count counter
+	count.incr()
 
 	// Execute a function after 10 mock seconds.
 	clock.AfterFunc(10*time.Second, func() {
-		count = 100
+		count.incr()
 	})
 	gosched()
 
 	// Print the starting value.
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.get())
 
 	// Move the clock forward 10 seconds and print the new value.
 	clock.Add(10 * time.Second)
-	fmt.Printf("%s: %d\n", clock.Now().UTC(), count)
+	fmt.Printf("%s: %d\n", clock.Now().UTC(), count.get())
 
 	// Output:
-	// 1970-01-01 00:00:00 +0000 UTC: 0
-	// 1970-01-01 00:00:10 +0000 UTC: 100
+	// 1970-01-01 00:00:00 +0000 UTC: 1
+	// 1970-01-01 00:00:10 +0000 UTC: 2
 }
 
 func ExampleMock_Sleep() {
@@ -725,9 +726,9 @@ func TestMock_AddAfterFuncRace(t *testing.T) {
 
 	mockedClock := NewMock()
 
-	called := false
+	var calls counter
 	defer func() {
-		if !called {
+		if calls.get() == 0 {
 			t.Errorf("AfterFunc did not call the function")
 		}
 	}()
@@ -738,7 +739,7 @@ func TestMock_AddAfterFuncRace(t *testing.T) {
 		<-start
 
 		mockedClock.AfterFunc(time.Millisecond, func() {
-			called = true
+			calls.incr()
 		})
 	}()
 

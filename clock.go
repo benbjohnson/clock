@@ -162,7 +162,7 @@ func (m *Mock) After(d time.Duration) <-chan time.Time {
 	return m.Timer(d).C
 }
 
-// AfterFunc waits for the duration to elapse and then executes a function.
+// AfterFunc waits for the duration to elapse and then executes a function in its own goroutine.
 // A Timer is returned that can be stopped.
 func (m *Mock) AfterFunc(d time.Duration, f func()) *Timer {
 	m.mu.Lock()
@@ -321,7 +321,7 @@ func (t *internalTimer) Tick(now time.Time) {
 	t.mock.mu.Lock()
 	if t.fn != nil {
 		// defer function execution until the lock is released, and
-		defer t.fn()
+		defer func() { go t.fn() }()
 	} else {
 		t.c <- now
 	}
