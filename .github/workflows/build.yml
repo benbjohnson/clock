@@ -1,0 +1,37 @@
+name: Go
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # Test on one "earliest" Go as well as the latest two major Go
+        # versions. If some change requires bumping the "earliest" Go versiion,
+        # that's fine - just include that in the commit description so that
+        # users are aware.
+        go: ["1.16.x", "1.19.x", "1.20.x"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Load cached dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+    - name: Test
+      run: go test -v -race ./...
