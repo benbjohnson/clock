@@ -249,7 +249,6 @@ func (m *Mock) Ticker(d time.Duration) *Ticker {
 // Timer creates a new instance of Timer.
 func (m *Mock) Timer(d time.Duration) *Timer {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	ch := make(chan time.Time, 1)
 	t := &Timer{
 		C:       ch,
@@ -259,6 +258,8 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		stopped: false,
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
+	m.mu.Unlock()
+	m.runNextTimer(m.now)
 	return t
 }
 

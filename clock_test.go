@@ -195,6 +195,16 @@ func TestClock_Timer_Reset(t *testing.T) {
 	}
 }
 
+func TestClock_NegativeDuration(t *testing.T) {
+	clock := NewMock()
+	timer := clock.Timer(-time.Second)
+	select {
+	case <-timer.C:
+	default:
+		t.Fatal("timer should have fired immediately")
+	}
+}
+
 // Ensure reset can be called immediately after reading channel
 func TestClock_Timer_Reset_Unlock(t *testing.T) {
 	clock := NewMock()
