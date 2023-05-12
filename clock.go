@@ -171,7 +171,9 @@ func (m *Mock) runNextTimer(max time.Time) bool {
 	}
 
 	// Move "now" forward and unlock clock.
-	m.now = t.Next()
+	if t.Next().After(m.now) {
+		m.now = t.Next()
+	}
 	m.mu.Unlock()
 
 	// Execute timer.
@@ -324,7 +326,6 @@ func (t *Timer) Reset(d time.Duration) bool {
 
 	t.mock.mu.Lock()
 	t.next = t.mock.now.Add(d)
-	defer t.mock.mu.Unlock()
 
 	registered := !t.stopped
 	if t.stopped {
@@ -332,6 +333,8 @@ func (t *Timer) Reset(d time.Duration) bool {
 	}
 
 	t.stopped = false
+	t.mock.mu.Unlock()
+	t.mock.runNextTimer(t.mock.now)
 	return registered
 }
 

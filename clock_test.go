@@ -195,13 +195,25 @@ func TestClock_Timer_Reset(t *testing.T) {
 	}
 }
 
-func TestClock_NegativeDuration(t *testing.T) {
+func TestClock_Timer_NegativeDuration(t *testing.T) {
 	clock := NewMock()
+	now := clock.Now()
 	timer := clock.Timer(-time.Second)
 	select {
 	case <-timer.C:
 	default:
 		t.Fatal("timer should have fired immediately")
+	}
+
+	timer.Reset(-time.Second)
+	select {
+	case <-timer.C:
+	default:
+		t.Fatal("timer should have fired immediately")
+	}
+
+	if clock.Now() != now {
+		t.Fatal("current time should not have changed")
 	}
 }
 
