@@ -171,13 +171,15 @@ func (m *Mock) runNextTimer(max time.Time) bool {
 	}
 
 	// Move "now" forward and unlock clock.
-	if t.Next().After(m.now) {
-		m.now = t.Next()
+	m.now = t.Next()
+	now := m.now
+	if t.Next().After(now) {
+		now = t.Next()
 	}
 	m.mu.Unlock()
 
 	// Execute timer.
-	t.Tick(m.now)
+	t.Tick(now)
 	return true
 }
 
@@ -260,8 +262,9 @@ func (m *Mock) Timer(d time.Duration) *Timer {
 		stopped: false,
 	}
 	m.timers = append(m.timers, (*internalTimer)(t))
+	now := m.now
 	m.mu.Unlock()
-	m.runNextTimer(m.now)
+	m.runNextTimer(now)
 	return t
 }
 
