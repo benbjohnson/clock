@@ -766,5 +766,24 @@ func TestMock_AddAfterFuncRace(t *testing.T) {
 	wg.Wait()    // and wait for them
 }
 
+func TestMock_AfterRace(t *testing.T) {
+	mock := NewMock()
+
+	const num = 10
+	var finished atomic.Int32
+
+	for i := 0; i < num; i++ {
+		go func() {
+			<-mock.After(1 * time.Millisecond)
+			finished.Add(1)
+		}()
+	}
+
+	for finished.Load() < num {
+		mock.Add(time.Second)
+		gosched()
+	}
+}
+
 func warn(v ...interface{})              { fmt.Fprintln(os.Stderr, v...) }
 func warnf(msg string, v ...interface{}) { fmt.Fprintf(os.Stderr, msg+"\n", v...) }
